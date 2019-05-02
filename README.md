@@ -22,3 +22,10 @@ mkdir build
 cd build
 cmake .. && make
 ```
+
+## TODO
+1. libevmasm의 Instruction.h, Instruction.cpp에 OPCODE 추가
+2. libevmasm/SemanticInformation.cpp에 OPCODE 추가
+3. libsolidity/codegen/ExpressionCompiler.cpp 수정
+
+Let's do it!
