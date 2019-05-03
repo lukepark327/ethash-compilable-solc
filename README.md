@@ -1,6 +1,3 @@
-# sol_breakdown
-make my own solidity
-
 # Install
 
 ## Clone the Repository
@@ -24,6 +21,7 @@ $ mkdir build
 $ cd build
 $ cmake .. && make
 ```
+If you finish building solc successfully, It may install ```/usr/local/bin/solc``` too. Now you can use solidity compiler in any directory. Just call ```solc```.
 
 # How to Use
 
