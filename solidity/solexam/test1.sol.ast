@@ -1,0 +1,49 @@
+PragmaDirective
+   Source: "pragma solidity ^0.5.1;"
+ContractDefinition "test1"
+   Source: "contract test1 {\n    \n    uint blocknumber;\n    \n    constructor () public {\n        blocknumber = block.number;\n    }\n    \n    function getNum() public view returns(uint) {\n        return blocknumber;\n    }\n    \n}"
+  VariableDeclaration "blocknumber"
+     Type: uint256
+     Source: "uint blocknumber"
+    ElementaryTypeName uint
+       Source: "uint"
+  FunctionDefinition "" - public
+     Source: "constructor () public {\n        blocknumber = block.number;\n    }"
+    ParameterList
+       Source: "()"
+    ParameterList
+       Source: ""
+    Block
+       Source: "{\n        blocknumber = block.number;\n    }"
+      ExpressionStatement
+         Source: "blocknumber = block.number"
+        Assignment using operator =
+           Type: uint256
+           Source: "blocknumber = block.number"
+          Identifier blocknumber
+             Type: uint256
+             Source: "blocknumber"
+          MemberAccess to member number
+             Type: uint256
+             Source: "block.number"
+            Identifier block
+               Type: block
+               Source: "block"
+  FunctionDefinition "getNum" - public - const
+     Source: "function getNum() public view returns(uint) {\n        return blocknumber;\n    }"
+    ParameterList
+       Source: "()"
+    ParameterList
+       Source: "(uint)"
+      VariableDeclaration ""
+         Type: uint256
+         Source: "uint"
+        ElementaryTypeName uint
+           Source: "uint"
+    Block
+       Source: "{\n        return blocknumber;\n    }"
+      Return
+         Source: "return blocknumber"
+        Identifier blocknumber
+           Type: uint256
+           Source: "blocknumber"
