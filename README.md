@@ -1,3 +1,28 @@
+# Overview
+The implementation of additional solidity instruction(s).
+
+## Table
+
+| Opcode | Name | Description | Extra Info | Gas |
+| --- | --- | --- | --- | --- |
+...
+| `0x3e` | RETURNDATACOPY | Copies data from the return data buffer to memory | [EIP 211](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-211.md) | 3 |
+| `0x3f` | Unused | - |
+| `0x40` | BLOCKHASH | Get the hash of one of the 256 most recent complete blocks | - | 20 |
+| `0x41` | COINBASE | Get the block's beneficiary address | - | 2 |
+| `0x42` | TIMESTAMP | Get the block's timestamp | - | 2 |
+| `0x43` | NUMBER | Get the block's number | - | 2 |
+| `0x44` | DIFFICULTY | Get the block's difficulty | - | 2 |
+| `0x45` | GASLIMIT | Get the block's gas limit | - | 2 |
+| `0x46` | ETHASH | TBA | - | 2 |
+| `0x47` - `0x4f` | Unused | - |
+| `0x50` | POP | Remove word from stack | - | 2 |
+...
+
+We get a new instruction; `0x46` ETHASH.
+
+
+
 # Install
 
 ## Clone the Repository
@@ -193,4 +218,3 @@ because of 0x49==73.
 [1] https://ethereum.stackexchange.com/questions/15435/how-to-compile-solidity-contracts-with-geth-v1-6   
 [2] https://blog.csdn.net/weixin_40401264/article/details/78136346   
 [3] https://javaexpert.tistory.com/946   
-
