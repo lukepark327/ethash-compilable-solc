@@ -23,6 +23,33 @@ We get a new OPCODE; `0x46` ETHASH. You can use ETHASH with a new solidity instr
 
 Ethereum Virtual Machine (EVM) and solidity compiler have to be changed. Refer [geth-breakdown](https://github.com/twodude/geth-breakdown) for modified EVM.
 
+## Test
+Decode a bytecode which contains my own OPCODE:
+```
+6080604052348015600f57600080fd5b50466000556077806100226000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806303c6f5b314602d575b600080fd5b60336045565b60408051918252519081900360200190f35b6000549056fea165627a7a72305820c9d9bab3ca0fb6839aa278a1bc4d2a3608b674f66f73bb99987278cc77c0e2bd0029
+```
+decodes to
+```
+[0] DUP1
+[2] PUSH1 0x40
+[3] MSTORE
+[4] CALLVALUE
+[5] DUP1
+[6] ISZERO
+[8] PUSH1 0x0f
+[9] JUMPI
+[11] PUSH1 0x00
+[12] DUP1
+[13] REVERT
+[14] JUMPDEST
+[15] POP
+[16] '46'(Unknown Opcode)
+[18] PUSH1 0x00
+```
+As you know, `0x46` is our new OPCODE! See [16].
+
+Refer [Bytecode to Opcode Disassembler by Etherscan](https://etherscan.io/opcode-tool).
+
 # Install
 
 ## Clone the Repository
