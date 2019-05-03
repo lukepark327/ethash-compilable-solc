@@ -172,7 +172,9 @@ Now you can find Contract's address and deploying transaction's hash. Then,
 So the function selector for the getNum() function is 0x67e0badb.
 
 ```bash
-eth.sendTransaction({from:eth.accounts[0], to:"0x37b601a8d2367cb5962dd3d67d6dd9c36f0d8040", value:0, data:"0x67e0badb0000000000000000000000000000000000000000000000000000000000000000"})
+> eth.sendTransaction({from:eth.accounts[0], to:"0x37b601a8d2367cb5962dd3d67d6dd9c36f0d8040", value:0, data:"0x67e0badb0000000000000000000000000000000000000000000000000000000000000000"})
+INFO [05-03|12:59:32.177669] Submitted transaction                    fullhash=0xecb0cafd549f32240fbde05f0d0c06247993d3049c248895a55ab9396b7db557 recipient=0x37b601a8d2367CB5962DD3D67d6Dd9c36F0d8040
+"0xecb0cafd549f32240fbde05f0d0c06247993d3049c248895a55ab9396b7db557"
 ```
 * from: account of the caller. 
 * to: contract address 
@@ -184,6 +186,8 @@ eth.sendTransaction({from:eth.accounts[0], to:"0x37b601a8d2367cb5962dd3d67d6dd9c
     * The value set here is 0x0000.
     
 Reference: https://blog.csdn.net/weixin_40401264/article/details/78136346
+
+
 
 ## TODO
 1. libevmasm의 Instruction.h, Instruction.cpp에 OPCODE 추가
