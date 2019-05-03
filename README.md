@@ -189,13 +189,6 @@ INFO [05-03|12:59:32.177669] Submitted transaction                    fullhash=0
 ```
 because of 0x49==73.
 
-## TODO
-1. libevmasm의 Instruction.h, Instruction.cpp에 OPCODE 추가
-2. libevmasm/SemanticInformation.cpp에 OPCODE 추가
-3. libsolidity/codegen/ExpressionCompiler.cpp 수정
-
-Let's do it!
-
 ## References
 [1] https://ethereum.stackexchange.com/questions/15435/how-to-compile-solidity-contracts-with-geth-v1-6   
 [2] https://blog.csdn.net/weixin_40401264/article/details/78136346   
