@@ -4,4 +4,5 @@
 
 ## Compiler
 It has switch-case syntax in line #1347 in ```libsolidity/codegen/ExpressionCompiler.cpp```.
-But what is ```codegen```? Is it a library for creating test codes? I don't know...
+
+But what is ```codegen```? Is it a library for creating test codes? 🤔...
