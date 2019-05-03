@@ -1,6 +1,8 @@
 # sol_breakdown
 make my own solidity
 
+# Install
+
 ## Clone the Repository
 ```bash
 $ git clone --recursive https://github.com/ethereum/solidity.git
@@ -24,6 +26,26 @@ $ cmake .. && make
 ```
 
 # How to Use
+
+## Create Contract
+```bash
+> cat solexam/test1.sol
+pragma solidity ^0.5.1;
+
+contract test1 {
+
+    uint blocknumber;
+
+    constructor () public {
+        blocknumber = block.number;
+    }
+
+    function getNum() public view returns(uint) {
+        return blocknumber;
+    }
+
+}
+```
 
 ## Compile
 ```bash
@@ -141,6 +163,26 @@ Now you can find Contract's address and deploying transaction's hash. Then,
   uncles: []
 }
 ```
+
+## Call the Contract Function
+```bash
+> web3.sha3("getNum()")
+"0x67e0badbd9d54f8777f844af5013859ed16b3097520a135023bf50d6a299c144"
+```
+So the function selector for the getNum() function is 0x67e0badb.
+
+```bash
+eth.sendTransaction({from:eth.accounts[0], to:"0x37b601a8d2367cb5962dd3d67d6dd9c36f0d8040", value:0, data:"0x67e0badb0000000000000000000000000000000000000000000000000000000000000000"})
+```
+* from: account of the caller. 
+* to: contract address 
+* value: since the purpose of this call is not to transfer money, this value is 0.
+* data: describes the function to call and what parameters to use.
+  * The first four bytes are the function selector. This is to call the getNum() function so 0x67e0badb.
+  * Since the set function has no parameter,
+    * The word length is 32 bytes.
+    * The value set here is 0x0000.
+Reference: https://blog.csdn.net/weixin_40401264/article/details/78136346
 
 ## TODO
 1. libevmasm의 Instruction.h, Instruction.cpp에 OPCODE 추가
