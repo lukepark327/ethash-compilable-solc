@@ -80,6 +80,7 @@ struct InterpreterState
 	dev::u256 blockNumber = 1024;
 	dev::u256 difficulty = 0x9999999;
 	dev::u256 gaslimit = 4000000;
+	dev::u256 ethash = 0x12345678;
 	/// Log of changes / effects. Sholud be structured data in the future.
 	std::vector<std::string> trace;
 	/// This is actually an input parameter that more or less limits the runtime.

@@ -1356,6 +1356,8 @@ bool ExpressionCompiler::visit(MemberAccess const& _memberAccess)
 			m_context << Instruction::NUMBER;
 		else if (member == "gaslimit")
 			m_context << Instruction::GASLIMIT;
+		else if (member == "ethash")
+			m_context << Instruction::ETHASH;
 		else if (member == "sender")
 			m_context << Instruction::CALLER;
 		else if (member == "value")

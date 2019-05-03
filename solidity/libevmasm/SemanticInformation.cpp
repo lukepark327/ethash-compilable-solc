@@ -258,6 +258,7 @@ bool SemanticInformation::invalidInPureFunctions(Instruction _instruction)
 	case Instruction::NUMBER:
 	case Instruction::DIFFICULTY:
 	case Instruction::GASLIMIT:
+	case Instruction::ETHASH:
 	case Instruction::STATICCALL:
 	case Instruction::SLOAD:
 		return true;

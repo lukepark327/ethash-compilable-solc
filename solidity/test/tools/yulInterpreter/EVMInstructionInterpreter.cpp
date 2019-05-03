@@ -264,6 +264,8 @@ u256 EVMInstructionInterpreter::eval(
 		return m_state.difficulty;
 	case Instruction::GASLIMIT:
 		return m_state.gaslimit;
+	case Instruction::ETHASH:
+		return m_state.ethash;
 	// --------------- memory / storage / logs ---------------
 	case Instruction::MLOAD:
 		if (logMemoryRead(arg[0], 0x20))
