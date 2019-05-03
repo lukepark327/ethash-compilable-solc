@@ -182,6 +182,7 @@ eth.sendTransaction({from:eth.accounts[0], to:"0x37b601a8d2367cb5962dd3d67d6dd9c
   * Since the set function has no parameter,
     * The word length is 32 bytes.
     * The value set here is 0x0000.
+    
 Reference: https://blog.csdn.net/weixin_40401264/article/details/78136346
 
 ## TODO
