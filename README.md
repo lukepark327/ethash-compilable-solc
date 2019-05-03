@@ -187,7 +187,11 @@ INFO [05-03|12:59:32.177669] Submitted transaction                    fullhash=0
     
 Reference: https://blog.csdn.net/weixin_40401264/article/details/78136346
 
-
+```bash
+> eth.getStorageAt("0x37b601a8d2367cb5962dd3d67d6dd9c36f0d8040",0);
+"0x0000000000000000000000000000000000000000000000000000000000000049"
+```
+because of 0x49==73.
 
 ## TODO
 1. libevmasm의 Instruction.h, Instruction.cpp에 OPCODE 추가
