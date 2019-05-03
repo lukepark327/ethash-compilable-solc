@@ -1,5 +1,6 @@
 # Todo
 * Move ETHASH OPCODE to somewhere... not ```block.~```.
+	* Maybe you need to implement some kind of new magic code.
 * Make EVM modified with being able to handle new OPCODEs.
 
 # Overview
