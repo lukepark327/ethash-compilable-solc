@@ -183,10 +183,8 @@ INFO [05-03|12:59:32.177669] Submitted transaction                    fullhash=0
   * The first four bytes are the function selector. This is to call the getNum() function so 0x67e0badb.
   * Since the set function has no parameter,
     * The word length is 32 bytes.
-    * The value set here is 0x0000 because there is no set value. Actually, I think that I show you a wrong example...
+    * The value set here is 0x0000 because there is no set value. Actually, I think that I show you a wrong example... Anyway,
     
-Reference: https://blog.csdn.net/weixin_40401264/article/details/78136346
-
 ```bash
 > eth.getStorageAt("0x37b601a8d2367cb5962dd3d67d6dd9c36f0d8040",0);
 "0x0000000000000000000000000000000000000000000000000000000000000049"
@@ -199,3 +197,6 @@ because of 0x49==73.
 3. libsolidity/codegen/ExpressionCompiler.cpp 수정
 
 Let's do it!
+
+## References
+[1] https://blog.csdn.net/weixin_40401264/article/details/78136346
