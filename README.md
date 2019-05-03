@@ -19,9 +19,9 @@ The implementation of additional solidity instruction(s).
 | `0x50` | POP | Remove word from stack | - | 2 |
 ...
 
-We get a new instruction; `0x46` ETHASH.
+We get a new OPCODE; `0x46` ETHASH. You can use ETHASH with a new solidity instruction; `block.ethash`.
 
-
+Ethereum Virtual Machine (EVM) and solidity compiler have to be changed. Refer [geth-breakdown](https://github.com/twodude/geth-breakdown) for modified EVM.
 
 # Install
 
