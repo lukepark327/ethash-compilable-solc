@@ -1,3 +1,7 @@
+# Todo
+* Move ETHASH OPCODE to normal instruction, not ```block.ethash```.
+* Make EVM modified with being able to handle new OPCODEs.
+
 # Overview
 The implementation of additional solidity instruction(s).
 
