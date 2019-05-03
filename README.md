@@ -80,7 +80,25 @@ null [object Object]
 undefined
 >
 ```
-where "12341234" is a password.
+where "12341234" is a password. Then,
+```bash
+> miner.start()
+INFO [05-03|12:25:13.345253] Transaction pool price threshold updated price=18000000000
+INFO [05-03|12:25:13.345792] Starting mining operation
+null
+> INFO [05-03|12:25:13.347485] will Finalize the block
+INFO [05-03|12:25:13.34761] Commit new mining work                   number=73 txs=2 uncles=0 elapsed=1.767ms
+INFO [05-03|12:25:13.348424] will Seal the block
+hash is : 0xd281350627c61a527fdbcfe187b9da9a6e444b7af5dde1bd8d334115ba33b9c3INFO [05-03|12:25:28.3505] Successfully sealed new block            number=73 hash=a800f4…0401c3
+INFO [05-03|12:25:28.354655] 🔨 mined potential block                  number=73 hash=a800f4…0401c3
+INFO [05-03|12:25:28.354838] will Finalize the block
+INFO [05-03|12:25:28.354906] Commit new mining work                   number=74 txs=0 uncles=0 elapsed=201.095µs
+INFO [05-03|12:25:28.354969] will Seal the block
+null [object Object]
+Contract mined! address: 0x37b601a8d2367cb5962dd3d67d6dd9c36f0d8040 transactionHash: 0x7d188b2e0740881798eddbaab1822e0fc1ed5bd6a6877d18f5698293a6bb3261
+hash is : 0xa800f471d518abb50a1c8821c1eaf298eae4df88436366ccd274e4870d0401c3INFO [05-03|12:25:43.355571] Successfully sealed new block            number=74 hash=52d6c0…3e0ed9
+```
+Now you can find Contract's address and deploying transaction's hash.
 
 ## TODO
 1. libevmasm의 Instruction.h, Instruction.cpp에 OPCODE 추가
