@@ -49,7 +49,7 @@ contract test1 {
 
 ## Compile
 ```bash
-$ echo "var testOutput=`solc --optimize --combined-json abi,bin,interface solexam/test1.sol`" > solexam/test.js
+$ echo "var testOutput=`build/solc/solc --optimize --combined-json abi,bin,interface solexam/test1.sol`" > solexam/test.js
 ```
 which ```solexam/test1.sol``` is a file for testing.
 
@@ -60,7 +60,7 @@ var testOutput={"contracts":{"solexam/test1.sol:test1":{"abi":"[{\"constant\":tr
 
 ## Compile with details
 ```bash
-solc -o ./solexam --bin --ast --asm solexam/test1.sol
+build/solc/solc -o ./solexam --bin --ast --asm solexam/test1.sol
 ```
 
 ## Run on EVM
