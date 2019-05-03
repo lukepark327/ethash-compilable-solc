@@ -1,5 +1,5 @@
 # Todo
-* Move ETHASH OPCODE to normal instruction, not ```block.ethash```.
+* Move ETHASH OPCODE to somewhere... not ```block.~```.
 * Make EVM modified with being able to handle new OPCODEs.
 
 # Overview
