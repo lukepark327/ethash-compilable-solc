@@ -183,7 +183,7 @@ INFO [05-03|12:59:32.177669] Submitted transaction                    fullhash=0
   * The first four bytes are the function selector. This is to call the getNum() function so 0x67e0badb.
   * Since the set function has no parameter,
     * The word length is 32 bytes.
-    * The value set here is 0x0000.
+    * The value set here is 0x0000 because there is no set value. Actually, I think that I show you a wrong example...
     
 Reference: https://blog.csdn.net/weixin_40401264/article/details/78136346
 
