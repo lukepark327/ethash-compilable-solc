@@ -18,3 +18,13 @@ we need to modify these files;
 ## Keywords
 ```libsolidity/ast/Types.cpp```   
 ```libsolidity/codegen/ExpressionCompiler.cpp``` which converts keyword -> OPCODE.   
+
+# If
+you change the above files, you have to change the following codes for build;
+```test/tools/yulInterpreter/EVMInstructionInterpreter.cpp```   
+```test/tools/yulInterpreter/Interpreter.h```'s ```struct InterpreterState```   
+
+# Let's Build!
+```bash
+$ ./scripts/build.sh
+```
