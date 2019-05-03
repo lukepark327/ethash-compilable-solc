@@ -98,7 +98,26 @@ null [object Object]
 Contract mined! address: 0x37b601a8d2367cb5962dd3d67d6dd9c36f0d8040 transactionHash: 0x7d188b2e0740881798eddbaab1822e0fc1ed5bd6a6877d18f5698293a6bb3261
 hash is : 0xa800f471d518abb50a1c8821c1eaf298eae4df88436366ccd274e4870d0401c3INFO [05-03|12:25:43.355571] Successfully sealed new block            number=74 hash=52d6c0…3e0ed9
 ```
-Now you can find Contract's address and deploying transaction's hash.
+Now you can find Contract's address and deploying transaction's hash. Then,
+```bash
+> eth.getTransaction("0x7d188b2e0740881798eddbaab1822e0fc1ed5bd6a6877d18f5698293a6bb3261");
+{
+  blockHash: "0xa800f471d518abb50a1c8821c1eaf298eae4df88436366ccd274e4870d0401c3",
+  blockNumber: 73,
+  from: "0x6282ad5f86c03726722ec397844d2f87ced3af89",
+  gas: 1000000,
+  gasPrice: 18000000000,
+  hash: "0x7d188b2e0740881798eddbaab1822e0fc1ed5bd6a6877d18f5698293a6bb3261",
+  input: "0x6080604052348015600f57600080fd5b50436000556077806100226000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806367e0badb14602d575b600080fd5b60336045565b60408051918252519081900360200190f35b6000549056fea165627a7a7230582078e56c51dc19f67e82b3665ea0d065284247b45a9e463798d34ab629327efc9e0029",
+  nonce: 1,
+  r: "0x2df91d2ba580d1a2a06548bbc903a6a019fda8b8a80c1b70a6165cd0e50a81f2",
+  s: "0x50b88eec2941c1e58df22b2679d314eb196e67ffad79cf0135e2fff11681d008",
+  to: null,
+  transactionIndex: 1,
+  v: "0x1d0091",
+  value: 0
+}
+```
 
 ## TODO
 1. libevmasm의 Instruction.h, Instruction.cpp에 OPCODE 추가
