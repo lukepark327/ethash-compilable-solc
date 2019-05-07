@@ -2664,6 +2664,7 @@ string FunctionType::richIdentifier() const
 	case Kind::SetGas: id += "setgas"; break;
 	case Kind::SetValue: id += "setvalue"; break;
 	case Kind::BlockHash: id += "blockhash"; break;
+	case Kind::Ethash: id += "ethash"; break;
 	case Kind::AddMod: id += "addmod"; break;
 	case Kind::MulMod: id += "mulmod"; break;
 	case Kind::ArrayPush: id += "arraypush"; break;
@@ -3459,7 +3460,21 @@ MemberList::MemberMap MagicType::nativeMembers(ContractDefinition const*) const
 			{"difficulty", TypeProvider::uint256()},
 			{"number", TypeProvider::uint256()},
 			{"gaslimit", TypeProvider::uint256()},
-			{"ethash", TypeProvider::uint256()}
+			{"ethash", TypeProvider::function(
+				strings{"uint", "bytes32", "uint"},
+				strings{"bool"},
+				FunctionType::Kind::Ethash,
+				false,
+				StateMutability::View
+			)}
+			/// @returns the function type to be used for a plain type (not derived from a declaration).
+			// static FunctionType const* function(
+			// 	strings const& _parameterTypes,
+			// 	strings const& _returnParameterTypes,
+			// 	FunctionType::Kind _kind = FunctionType::Kind::Internal,
+			// 	bool _arbitraryParameters = false,
+			// 	StateMutability _stateMutability = StateMutability::NonPayable
+			// );
 		});
 	case Kind::Message:
 		return MemberList::MemberMap({

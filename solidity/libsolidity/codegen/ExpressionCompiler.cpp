@@ -832,6 +832,20 @@ bool ExpressionCompiler::visit(FunctionCall const& _functionCall)
 			m_context << Instruction::BLOCKHASH;
 			break;
 		}
+		case FunctionType::Kind::Ethash:
+		{
+			arguments[2]->accept(*this);
+			utils().convertType(*arguments[2]->annotation().type, *function.parameterTypes()[2], true);
+			
+			arguments[1]->accept(*this);
+			utils().convertType(*arguments[1]->annotation().type, *function.parameterTypes()[1], true);
+			
+			arguments[0]->accept(*this);
+			utils().convertType(*arguments[0]->annotation().type, *function.parameterTypes()[0], true);
+			
+			m_context << Instruction::ETHASH;
+			break;
+		}
 		case FunctionType::Kind::AddMod:
 		case FunctionType::Kind::MulMod:
 		{
@@ -1356,8 +1370,6 @@ bool ExpressionCompiler::visit(MemberAccess const& _memberAccess)
 			m_context << Instruction::NUMBER;
 		else if (member == "gaslimit")
 			m_context << Instruction::GASLIMIT;
-		else if (member == "ethash")
-			m_context << Instruction::ETHASH;
 		else if (member == "sender")
 			m_context << Instruction::CALLER;
 		else if (member == "value")
@@ -1375,6 +1387,8 @@ bool ExpressionCompiler::visit(MemberAccess const& _memberAccess)
 			solAssert(false, "Gas has been removed.");
 		else if (member == "blockhash")
 			solAssert(false, "Blockhash has been removed.");
+		else if (member == "ethash")
+			solAssert(false, "Ethash has been removed.");
 		else if (member == "creationCode" || member == "runtimeCode")
 		{
 			TypePointer arg = dynamic_cast<MagicType const&>(*_memberAccess.expression().annotation().type).typeArgument();
