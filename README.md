@@ -1,10 +1,8 @@
-# Todo
-* Move ETHASH OPCODE to somewhere... not ```block.~```.
-	* Maybe you need to implement some kind of new magic code.
-* Make EVM modified with being able to handle new OPCODEs.
-
 # Overview
-The implementation of additional solidity instruction(s).
+The implementation of additional solidity instruction(s). Let me show you `ETHASH` as an example. `ETHASH` is an OPCODE which verifies Ethereum's header. It returns true if header is valid, else returns false.
+* block.ethash(uint256,bytes32,uint256) returns (bool)
+
+Ethereum Virtual Machine (EVM) and solidity compiler have to be changed. Refer [geth-breakdown](https://github.com/twodude/geth-breakdown) for modified EVM.
 
 ## Table
 
@@ -19,37 +17,39 @@ The implementation of additional solidity instruction(s).
 | `0x43` | NUMBER | Get the block's number | - | 2 |
 | `0x44` | DIFFICULTY | Get the block's difficulty | - | 2 |
 | `0x45` | GASLIMIT | Get the block's gas limit | - | 2 |
-| `0x46` | ETHASH | TBA | - | 2 |
+| `0x46` | ETHASH | Show the above definition | - | 2 |
 | `0x47` - `0x4f` | Unused | - |
 | `0x50` | POP | Remove word from stack | - | 2 |
 ...
 
-We get a new OPCODE; `0x46` ETHASH. You can use ETHASH with a new solidity instruction; `block.ethash`.
-
-Ethereum Virtual Machine (EVM) and solidity compiler have to be changed. Refer [geth-breakdown](https://github.com/twodude/geth-breakdown) for modified EVM.
+We get a new OPCODE `0x46` as ETHASH. You can use ETHASH with a new solidity instruction; `block.ethash(...)`.
 
 ## Test
 Decode a bytecode which contains my own OPCODE;
 Original solidity code is
-```solidity
+```bash
+$ cat solexam/testEthash.sol
+pragma solidity ^0.5.0;
+
 contract testEthash {
-	uint blockEthash;
+	bool blockEthash;
 
 	constructor () public {
-		blockEthash = block.ethash;
+		blockEthash = block.ethash(3, "0x12", 6); // blockNumber, Truncated blockHash, nonce
 	}
 
-	function getEthash() public view returns(uint) {
+	function getEthash() public view returns(bool) {
 		return blockEthash;
 	}
 }
 ```
 The bytecode of the above code
 ```
-6080604052348015600f57600080fd5b50466000556077806100226000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806303c6f5b314602d575b600080fd5b60336045565b60408051918252519081900360200190f35b6000549056fea165627a7a72305820c9d9bab3ca0fb6839aa278a1bc4d2a3608b674f66f73bb99987278cc77c0e2bd0029
+6080604052348015600f57600080fd5b5060067f30783132000000000000000000000000000000000000000000000000000000006003466000805491151560ff19909216919091179055607c806100576000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806303c6f5b314602d575b600080fd5b60336047565b604080519115158252519081900360200190f35b60005460ff169056fea165627a7a7230582030f87231d1014e4e74a81076801d7b0543a29ffbb290623fb5ac687bb2baea7f0029
 ```
 decodes to
 ```
+
 [0] DUP1
 [2] PUSH1 0x40
 [3] MSTORE
@@ -63,20 +63,19 @@ decodes to
 [13] REVERT
 [14] JUMPDEST
 [15] POP
-[16] '46'(Unknown Opcode)
-[18] PUSH1 0x00
+[17] PUSH1 0x06
+[50] PUSH32 0x3078313200000000000000000000000000000000000000000000000000000000
+[52] PUSH1 0x03
+[53] '46'(Unknown Opcode)
+[55] PUSH1 0x00
+[56] DUP1
+[57] SLOAD
 ```
-See [16]. As you know, `0x46` is our new OPCODE!
+See [53]. As you know, `0x46` is our new OPCODE. Also you can see [17], [50], [52]. Those are reverse order of parameters; 3, "0x12", and 6.
 
 Refer [Bytecode to Opcode Disassembler by Etherscan](https://etherscan.io/opcode-tool).
 
 # Install
-
-## Clone the Repository
-```bash
-$ git clone --recursive https://github.com/ethereum/solidity.git
-$ cd solidity
-```
 
 ## Install Dependencies
 ```bash
@@ -97,69 +96,68 @@ If you finish building solc successfully, It may install ```/usr/local/bin/solc`
 
 # How to Use
 
-## Create Contract
-```bash
-> cat solexam/test1.sol
-pragma solidity ^0.5.1;
-
-contract test1 {
-
-    uint blocknumber;
-
-    constructor () public {
-        blocknumber = block.number;
-    }
-
-    function getNum() public view returns(uint) {
-        return blocknumber;
-    }
-
-}
-```
-
 ## Compile
 ```bash
-$ echo "var testOutput=`build/solc/solc --optimize --combined-json abi,bin,interface solexam/test1.sol`" > solexam/test.js
+$ echo "var testOutput=`build/solc/solc --combined-json abi,bin,interface solexam/testEthash.sol`" > solexam/testEthash.js
 ```
-which ```solexam/test1.sol``` is a file for testing.
+which ```solexam/testEthash.sol``` is a file for testing. You can add `--optimize` flag for optimization.
 
 ```bash
-$ cat solexam/test.js
-var testOutput={"contracts":{"solexam/test1.sol:test1":{"abi":"[{\"constant\":true,\"inputs\":[],\"name\":\"getNum\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"}]","bin":"6080604052348015600f57600080fd5b50436000556077806100226000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806367e0badb14602d575b600080fd5b60336045565b60408051918252519081900360200190f35b6000549056fea165627a7a7230582078e56c51dc19f67e82b3665ea0d065284247b45a9e463798d34ab629327efc9e0029"}},"version":"0.5.9-develop.2019.5.2+commit.0fcb3e85.Darwin.appleclang"}
+$ cat solexam/testEthash.js
+var testOutput={"contracts":{"solexam/testEthash.sol:testEthash":{"abi":"[{\"constant\":true,\"inputs\":[],\"name\":\"getEthash\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"}]","bin":"6080604052348015600f57600080fd5b5060067f30783132000000000000000000000000000000000000000000000000000000006003466000806101000a81548160ff021916908315150217905550608f8061005c6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806303c6f5b314602d575b600080fd5b6033604d565b604051808215151515815260200191505060405180910390f35b60008060009054906101000a900460ff1690509056fea165627a7a72305820843ff4b78ea01dc4651a5bbe25a9c1c382fc50689719c0edcc25913df3bbc7390029"}},"version":"0.5.9-develop.2019.5.7+commit.0fcb3e85.mod.Darwin.appleclang"}
 ```
 
-## Compile with details
+## Compile with details (optional)
 ```bash
-build/solc/solc -o ./solexam --bin --ast --asm solexam/test1.sol
+$ build/solc/solc -o ./solexam --bin --ast --asm solexam/testEthash.sol
 ```
 
-## Run on EVM
+# Run
+
+## Run geth
+```bash
+$ build/bin/geth --datadir ./mydata/ --networkid 950327 --port 32222 --rpc --rpcport 8222 --nodiscover console
+```
+
+## Deploy Contract
 in geth console,
 ```bash
-> loadScript("/Users/luke/Desktop/solidity/solexam/test.js")
+> loadScript("/Users/luke/Desktop/solidity/solexam/testEthash.js")
 true
 > testOutput
 {
   contracts: {
-    solexam/test1.sol:test1: {
-      abi: "[{\"constant\":true,\"inputs\":[],\"name\":\"getNum\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"}]",
-      bin: "6080604052348015600f57600080fd5b50436000556077806100226000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806367e0badb14602d575b600080fd5b60336045565b60408051918252519081900360200190f35b6000549056fea165627a7a7230582078e56c51dc19f67e82b3665ea0d065284247b45a9e463798d34ab629327efc9e0029"
+    solexam/testEthash.sol:testEthash: {
+      abi: "[{\"constant\":true,\"inputs\":[],\"name\":\"getEthash\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"}]",
+      bin: "6080604052348015600f57600080fd5b5060067f30783132000000000000000000000000000000000000000000000000000000006003466000806101000a81548160ff021916908315150217905550608f8061005c6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806303c6f5b314602d575b600080fd5b6033604d565b604051808215151515815260200191505060405180910390f35b60008060009054906101000a900460ff1690509056fea165627a7a72305820843ff4b78ea01dc4651a5bbe25a9c1c382fc50689719c0edcc25913df3bbc7390029"
     }
   },
-  version: "0.5.9-develop.2019.5.2+commit.0fcb3e85.Darwin.appleclang"
+  version: "0.5.9-develop.2019.5.7+commit.0fcb3e85.mod.Darwin.appleclang"
 }
+```
+You can check contract bytecodes;
+```bash
 > testOutput.contracts
 {
-  solexam/test1.sol:test1: {
-    abi: "[{\"constant\":true,\"inputs\":[],\"name\":\"getNum\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"}]",
-    bin: "6080604052348015600f57600080fd5b50436000556077806100226000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806367e0badb14602d575b600080fd5b60336045565b60408051918252519081900360200190f35b6000549056fea165627a7a7230582078e56c51dc19f67e82b3665ea0d065284247b45a9e463798d34ab629327efc9e0029"
+  solexam/testEthash.sol:testEthash: {
+    abi: "[{\"constant\":true,\"inputs\":[],\"name\":\"getEthash\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"}]",
+    bin: "6080604052348015600f57600080fd5b5060067f30783132000000000000000000000000000000000000000000000000000000006003466000806101000a81548160ff021916908315150217905550608f8061005c6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806303c6f5b314602d575b600080fd5b6033604d565b604051808215151515815260200191505060405180910390f35b60008060009054906101000a900460ff1690509056fea165627a7a72305820843ff4b78ea01dc4651a5bbe25a9c1c382fc50689719c0edcc25913df3bbc7390029"
   }
 }
-> var testContract = web3.eth.contract(JSON.parse(testOutput.contracts["solexam/test1.sol:test1"].abi));
+```
+
+<!--
+수정요망
+-->
+
+Deploy by user whose index number is zero.
+
+```bash
+> var testContract = web3.eth.contract(JSON.parse(testOutput.contracts["solexam/testEthash.sol:testEthash"].abi));
 undefined
 > personal.unlockAccount(eth.accounts[0], "12341234");
 true
-> var test = testContract.new({ from: eth.accounts[0], data: "0x" + testOutput.contracts["solexam/test1.sol:test1"].bin, gas: 1000000},
+> var test = testContract.new({ from: eth.accounts[0], data: "0x" + testOutput.contracts["solexam/testEthash.sol:testEthash"].bin, gas: 2000000},
   function (e, contract) {
       console.log(e, contract);
       if (typeof contract.address !== 'undefined') {
@@ -167,12 +165,13 @@ true
       }
     }
   );
-INFO [05-03|12:23:26.625265] Submitted contract creation              fullhash=0x7d188b2e0740881798eddbaab1822e0fc1ed5bd6a6877d18f5698293a6bb3261 contract=0x37b601a8d2367CB5962DD3D67d6Dd9c36F0d8040
+INFO [05-07|16:06:46.995917] Submitted contract creation              fullhash=0x046c9b19579e6b8dc3fdaf1b257630d4c6ed2f55b161be76fbf51f7f1368402d contract=0x0e8f5FD6e49420F0Bef4A635C5142829F659ee19
 null [object Object]
 undefined
->
 ```
-where "12341234" is a password. Then,
+where "12341234" is a password.
+
+## Start mining
 ```bash
 > miner.start()
 INFO [05-03|12:25:13.345253] Transaction pool price threshold updated price=18000000000
@@ -190,6 +189,8 @@ null [object Object]
 Contract mined! address: 0x37b601a8d2367cb5962dd3d67d6dd9c36f0d8040 transactionHash: 0x7d188b2e0740881798eddbaab1822e0fc1ed5bd6a6877d18f5698293a6bb3261
 hash is : 0xa800f471d518abb50a1c8821c1eaf298eae4df88436366ccd274e4870d0401c3INFO [05-03|12:25:43.355571] Successfully sealed new block            number=74 hash=52d6c0…3e0ed9
 ```
+
+
 Now you can find Contract's address and deploying transaction's hash. Then,
 ```bash
 > eth.getTransaction("0x7d188b2e0740881798eddbaab1822e0fc1ed5bd6a6877d18f5698293a6bb3261");
@@ -261,7 +262,17 @@ INFO [05-03|12:59:32.177669] Submitted transaction                    fullhash=0
 ```
 because of 0x49==73.
 
-## References
+# Trouble Shootings
+
+## Fail to Deploy
+
+If error occurs, you might see the message below;
+```bash
+Error: The contract code couldn't be stored, please check your gas amount. undefined
+```
+You need to allocate more gas.
+
+# References
 [1] https://ethereum.stackexchange.com/questions/15435/how-to-compile-solidity-contracts-with-geth-v1-6   
 [2] https://blog.csdn.net/weixin_40401264/article/details/78136346   
 [3] https://javaexpert.tistory.com/946   
