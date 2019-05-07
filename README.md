@@ -114,13 +114,7 @@ $ build/solc/solc -o ./solexam --bin --ast --asm solexam/testEthash.sol
 
 # Trouble Shootings
 
-## Fail to Deploy
-
-If error occurs, you might see the message below;
-```bash
-Error: The contract code couldn't be stored, please check your gas amount. undefined
-```
-You need to allocate more gas.
+TBA
 
 # References
 [1] https://ethereum.stackexchange.com/questions/15435/how-to-compile-solidity-contracts-with-geth-v1-6   
