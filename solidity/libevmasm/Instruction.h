@@ -90,7 +90,7 @@ enum class Instruction: uint8_t
 	NUMBER,				///< get the block's number
 	DIFFICULTY,			///< get the block's difficulty
 	GASLIMIT,			///< get the block's gas limit
-	ETHASH,				///< my own OPCODE
+	ETHASH,				///< my own OPCODE for calculating ETHASH
 
 	POP = 0x50,			///< remove item from stack
 	MLOAD,				///< load word from memory
