@@ -118,5 +118,4 @@ TBA
 
 # References
 [1] https://ethereum.stackexchange.com/questions/15435/how-to-compile-solidity-contracts-with-geth-v1-6   
-[2] https://blog.csdn.net/weixin_40401264/article/details/78136346   
-[3] https://javaexpert.tistory.com/946   
+[2] https://javaexpert.tistory.com/946   
