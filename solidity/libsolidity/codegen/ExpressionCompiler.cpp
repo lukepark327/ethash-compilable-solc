@@ -834,6 +834,12 @@ bool ExpressionCompiler::visit(FunctionCall const& _functionCall)
 		}
 		case FunctionType::Kind::Ethash:
 		{
+			arguments[4]->accept(*this);
+			utils().convertType(*arguments[4]->annotation().type, *function.parameterTypes()[4], true);
+			
+			arguments[3]->accept(*this);
+			utils().convertType(*arguments[3]->annotation().type, *function.parameterTypes()[3], true);
+			
 			arguments[2]->accept(*this);
 			utils().convertType(*arguments[2]->annotation().type, *function.parameterTypes()[2], true);
 			

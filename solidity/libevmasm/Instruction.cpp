@@ -226,9 +226,13 @@ static std::map<Instruction, InstructionInfo> const c_instructionInfo =
 	{ Instruction::NUMBER,		{ "NUMBER",			0, 0, 1, false, Tier::Base } },
 	{ Instruction::DIFFICULTY,	{ "DIFFICULTY",		0, 0, 1, false, Tier::Base } },
 	{ Instruction::GASLIMIT,	{ "GASLIMIT",		0, 0, 1, false, Tier::Base } },
-	{ Instruction::ETHASH,		{ "ETHASH",			0, 3, 1, false, Tier::Ext } },
+	{ Instruction::ETHASH,		{ "ETHASH",			0, 5, 1, false, Tier::Ext } },
 													// Add, Args, Ret, SideEffects, GasPriceTier
-													// Inputs	: blockNumber for cache, header.HashNoNonce().Bytes(), header.Nonce.Uint64()
+													// Inputs	: blockNumber for cache,
+													//			  header.MixDigest,
+													// 			  header.HashNoNonce().Bytes(),
+													// 			  difficulty,
+													//			  header.Nonce.Uint64()
 													// Outputs	: True or False
 	{ Instruction::POP,			{ "POP",			0, 1, 0, false, Tier::Base } },
 	{ Instruction::MLOAD,		{ "MLOAD",			0, 1, 1, true, Tier::VeryLow } },

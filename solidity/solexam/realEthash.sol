@@ -1,6 +1,6 @@
 pragma solidity ^0.5.1;
 
-contract testEthash {
+contract realEthash {
 	uint blockNumber;
 	bytes32 mixDigest;
 	bytes32 hashNoNonce;
@@ -8,6 +8,16 @@ contract testEthash {
 	uint nonce;
 
 	bool blockEthash;
+
+	constructor() public {
+		blockNumber = 70;
+		mixDigest = hex"4c9b60f5b1615455dac8e8efe72400a8ec005364aab15f2b8167acdf6ddb2faa";
+		hashNoNonce = hex"dc2395d39fb78f3b7549f6459488aec6936da81f9514e6b6a7d6ebd5399b39c4";
+		difficulty = 131904;
+		nonce = 528305859064789004;
+
+		blockEthash = block.ethash(blockNumber, mixDigest, hashNoNonce, difficulty, nonce);
+	}
 
 	// Inputs	: blockNumber for cache,
 	//			  header.MixDigest,

@@ -3461,7 +3461,7 @@ MemberList::MemberMap MagicType::nativeMembers(ContractDefinition const*) const
 			{"number", TypeProvider::uint256()},
 			{"gaslimit", TypeProvider::uint256()},
 			{"ethash", TypeProvider::function(
-				strings{"uint", "bytes32", "uint"},
+				strings{"uint", "bytes32", "bytes32", "uint", "uint"},
 				strings{"bool"},
 				FunctionType::Kind::Ethash,
 				false,
