@@ -126,8 +126,6 @@ currently not supported.
     brew tap ethereum/ethereum
     brew install solidity
 
-To install the most recent 0.4.x version of Solidity you can also use ``brew install solidity@4``.
-
 If you need a specific version of Solidity you can install a
 Homebrew formula directly from Github.
 
@@ -142,7 +140,7 @@ Install it using ``brew``:
 .. code-block:: bash
 
     brew unlink solidity
-    # eg. Install 0.4.8
+    # Install 0.4.8
     brew install https://raw.githubusercontent.com/ethereum/homebrew-ethereum/77cce03da9f289e5a3ffe579840d3c5dc0a62717/solidity.rb
 
 Gentoo Linux also provides a solidity package that can be installed using ``emerge``:
@@ -156,35 +154,23 @@ Gentoo Linux also provides a solidity package that can be installed using ``emer
 Building from Source
 ====================
 
-Prerequisites - All Operating Systems
--------------------------------------
+Prerequisites - Linux
+---------------------
 
-The following are dependencies for all builds of Solidity:
+You need to install the following dependencies for Linux builds of Solidity:
 
 +-----------------------------------+-------------------------------------------------------+
 | Software                          | Notes                                                 |
 +===================================+=======================================================+
-| `CMake`_                          | Cross-platform build file generator.                  |
-+-----------------------------------+-------------------------------------------------------+
-| `Boost`_  (version 1.65+)         | C++ libraries.                                        |
-+-----------------------------------+-------------------------------------------------------+
-| `Git`_                            | Command-line tool for retrieving source code.         |
-+-----------------------------------+-------------------------------------------------------+
-| `z3`_ (version 4.6+, Optional)    | For use with SMT checker.                             |
-+-----------------------------------+-------------------------------------------------------+
-| `cvc4`_ (Optional)                | For use with SMT checker.                             |
+| `Git for Linux`_                  | Command-line tool for retrieving source from Github.  |
 +-----------------------------------+-------------------------------------------------------+
 
-.. _cvc4: http://cvc4.cs.stanford.edu/web/
-.. _Git: https://git-scm.com/download
-.. _Boost: https://www.boost.org
-.. _CMake: https://cmake.org/download/
-.. _z3: https://github.com/Z3Prover/z3
+.. _Git for Linux: https://git-scm.com/download/linux
 
 Prerequisites - macOS
 ---------------------
 
-For macOS builds, ensure that you have the latest version of
+For macOS, ensure that you have the latest version of
 `Xcode installed <https://developer.apple.com/xcode/download/>`_.
 This contains the `Clang C++ compiler <https://en.wikipedia.org/wiki/Clang>`_, the
 `Xcode IDE <https://en.wikipedia.org/wiki/Xcode>`_ and other Apple development
@@ -197,11 +183,12 @@ command-line builds:
 
     sudo xcodebuild -license accept
 
-Our OS X build script uses `the Homebrew <http://brew.sh>`_
+Our OS X builds require you to `install the Homebrew <http://brew.sh>`_
 package manager for installing external dependencies.
 Here's how to `uninstall Homebrew
 <https://github.com/Homebrew/homebrew/blob/master/share/doc/homebrew/FAQ.md#how-do-i-uninstall-homebrew>`_,
 if you ever want to start again from scratch.
+
 
 Prerequisites - Windows
 -----------------------
@@ -211,17 +198,21 @@ You need to install the following dependencies for Windows builds of Solidity:
 +-----------------------------------+-------------------------------------------------------+
 | Software                          | Notes                                                 |
 +===================================+=======================================================+
+| `Git for Windows`_                | Command-line tool for retrieving source from Github.  |
++-----------------------------------+-------------------------------------------------------+
+| `CMake`_                          | Cross-platform build file generator.                  |
++-----------------------------------+-------------------------------------------------------+
 | `Visual Studio 2017 Build Tools`_ | C++ compiler                                          |
 +-----------------------------------+-------------------------------------------------------+
 | `Visual Studio 2017`_  (Optional) | C++ compiler and dev environment.                     |
 +-----------------------------------+-------------------------------------------------------+
 
-If you already have one IDE and only need the compiler and libraries,
+If you've already had one IDE and only need compiler and libraries,
 you could install Visual Studio 2017 Build Tools.
 
 Visual Studio 2017 provides both IDE and necessary compiler and libraries.
 So if you have not got an IDE and prefer to develop solidity, Visual Studio 2017
-may be a choice for you to get everything setup easily.
+may be an choice for you to get everything setup easily.
 
 Here is the list of components that should be installed
 in Visual Studio 2017 Build Tools or Visual Studio 2017:
@@ -232,24 +223,10 @@ in Visual Studio 2017 Build Tools or Visual Studio 2017:
 * Windows 8.1 SDK
 * C++/CLI support
 
+.. _Git for Windows: https://git-scm.com/download/win
+.. _CMake: https://cmake.org/download/
 .. _Visual Studio 2017: https://www.visualstudio.com/vs/
 .. _Visual Studio 2017 Build Tools: https://www.visualstudio.com/downloads/#build-tools-for-visual-studio-2017
-
-Dependencies Helper Script
---------------------------
-
-We have a helper script which you can use to install all required external dependencies
-on macOS, Windows and on numerous Linux distros.
-
-.. code-block:: bash
-
-    ./scripts/install_deps.sh
-
-Or, on Windows:
-
-.. code-block:: bat
-
-    scripts\install_deps.bat
 
 Clone the Repository
 --------------------
@@ -268,6 +245,23 @@ you should fork Solidity and add your personal fork as a second remote:
 
     git remote add personal git@github.com:[username]/solidity.git
 
+External Dependencies
+---------------------
+
+We have a helper script which installs all required external dependencies
+on macOS, Windows and on numerous Linux distros.
+
+.. code-block:: bash
+
+    ./scripts/install_deps.sh
+
+Or, on Windows:
+
+.. code-block:: bat
+
+    scripts\install_deps.bat
+
+
 Command-Line Build
 ------------------
 
@@ -284,11 +278,7 @@ Building Solidity is quite similar on Linux, macOS and other Unices:
     cd build
     cmake .. && make
 
-.. warning::
-
-    BSD builds should work, but are untested by the Solidity team.
-
-or even easier on Linux and macOS, you can run:
+or even easier:
 
 .. code-block:: bash
 
@@ -306,13 +296,13 @@ And for Windows:
 This latter set of instructions should result in the creation of
 **solidity.sln** in that build directory.  Double-clicking on that file
 should result in Visual Studio firing up.  We suggest building
-**Release** configuration, but all others work.
+**RelWithDebugInfo** configuration, but all others work.
 
 Alternatively, you can build for Windows on the command-line, like so:
 
 .. code-block:: bash
 
-    cmake --build . --config Release
+    cmake --build . --config RelWithDebInfo
 
 CMake options
 =============

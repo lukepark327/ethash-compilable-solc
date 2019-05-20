@@ -23,9 +23,8 @@
     let _11 := array_index_access(x, _10)
     mstore(_11, _9)
 }
-// ====
-// step: commonSubexpressionEliminator
 // ----
+// commonSubexpressionEliminator
 // {
 //     function allocate(size) -> p
 //     {

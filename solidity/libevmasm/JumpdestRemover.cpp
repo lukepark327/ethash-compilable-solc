@@ -19,7 +19,7 @@
  * Removes unused JUMPDESTs.
  */
 
-#include <libevmasm/JumpdestRemover.h>
+#include "JumpdestRemover.h"
 
 #include <libevmasm/AssemblyItem.h>
 

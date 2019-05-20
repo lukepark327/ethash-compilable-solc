@@ -19,7 +19,7 @@
  * @date 2014
  */
 
-#include <liblll/Parser.h>
+#include "Parser.h"
 
 #if _MSC_VER
 #pragma warning(disable:4348)

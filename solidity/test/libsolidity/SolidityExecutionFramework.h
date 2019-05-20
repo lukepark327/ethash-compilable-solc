@@ -27,9 +27,6 @@
 #include <test/ExecutionFramework.h>
 
 #include <libsolidity/interface/CompilerStack.h>
-
-#include <libyul/AssemblyStack.h>
-
 #include <liblangutil/Exceptions.h>
 #include <liblangutil/SourceReferenceFormatter.h>
 
@@ -46,7 +43,6 @@ class SolidityExecutionFramework: public dev::test::ExecutionFramework
 
 public:
 	SolidityExecutionFramework();
-	SolidityExecutionFramework(std::string const& _ipcPath, langutil::EVMVersion _evmVersion);
 
 	virtual bytes const& compileAndRunWithoutCheck(
 		std::string const& _sourceCode,
@@ -68,54 +64,31 @@ public:
 	)
 	{
 		// Silence compiler version warning
-		std::string sourceCode = "pragma solidity >=0.0;\n";
-		if (dev::test::Options::get().useABIEncoderV2 && _sourceCode.find("pragma experimental ABIEncoderV2;") == std::string::npos)
-			sourceCode += "pragma experimental ABIEncoderV2;\n";
-		sourceCode += _sourceCode;
-		m_compiler.reset();
-		m_compiler.setSources({{"", sourceCode}});
+		std::string sourceCode = "pragma solidity >=0.0;\n" + _sourceCode;
+		m_compiler.reset(false);
+		m_compiler.addSource("", sourceCode);
 		m_compiler.setLibraries(_libraryAddresses);
 		m_compiler.setEVMVersion(m_evmVersion);
-		m_compiler.setOptimiserSettings(m_optimiserSettings);
-		m_compiler.enableIRGeneration(m_compileViaYul);
+		m_compiler.setOptimiserSettings(m_optimize, m_optimizeRuns);
 		if (!m_compiler.compile())
 		{
-			langutil::SourceReferenceFormatter formatter(std::cerr);
+			auto scannerFromSourceName = [&](std::string const& _sourceName) -> langutil::Scanner const& { return m_compiler.scanner(_sourceName); };
+			langutil::SourceReferenceFormatter formatter(std::cerr, scannerFromSourceName);
 
 			for (auto const& error: m_compiler.errors())
-				formatter.printErrorInformation(*error);
+				formatter.printExceptionInformation(
+					*error,
+					(error->type() == langutil::Error::Type::Warning) ? "Warning" : "Error"
+				);
 			BOOST_ERROR("Compiling contract failed");
 		}
-		eth::LinkerObject obj;
-		if (m_compileViaYul)
-		{
-			yul::AssemblyStack asmStack(
-				m_evmVersion,
-				yul::AssemblyStack::Language::StrictAssembly,
-				m_optimiserSettings
-			);
-			if (!asmStack.parseAndAnalyze("", m_compiler.yulIROptimized(
-				_contractName.empty() ? m_compiler.lastContractName() : _contractName
-			)))
-			{
-				langutil::SourceReferenceFormatter formatter(std::cerr);
-
-				for (auto const& error: m_compiler.errors())
-					formatter.printErrorInformation(*error);
-				BOOST_ERROR("Assembly contract failed. IR: " + m_compiler.yulIROptimized({}));
-			}
-			asmStack.optimize();
-			obj = std::move(*asmStack.assemble(yul::AssemblyStack::Machine::EVM).bytecode);
-		}
-		else
-			obj = m_compiler.object(_contractName.empty() ? m_compiler.lastContractName() : _contractName);
+		eth::LinkerObject obj = m_compiler.object(_contractName.empty() ? m_compiler.lastContractName() : _contractName);
 		BOOST_REQUIRE(obj.linkReferences.empty());
 		return obj.bytecode;
 	}
 
 protected:
 	dev::solidity::CompilerStack m_compiler;
-	bool m_compileViaYul = false;
 };
 
 }

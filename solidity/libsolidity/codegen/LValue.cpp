@@ -21,21 +21,19 @@
  */
 
 #include <libsolidity/codegen/LValue.h>
-
-#include <libsolidity/ast/AST.h>
-#include <libsolidity/ast/Types.h>
-#include <libsolidity/codegen/CompilerUtils.h>
 #include <libevmasm/Instruction.h>
+#include <libsolidity/ast/Types.h>
+#include <libsolidity/ast/AST.h>
+#include <libsolidity/codegen/CompilerUtils.h>
 
 using namespace std;
 using namespace dev;
-using namespace dev::eth;
-using namespace dev::solidity;
 using namespace langutil;
+using namespace solidity;
 
 
 StackVariable::StackVariable(CompilerContext& _compilerContext, VariableDeclaration const& _declaration):
-	LValue(_compilerContext, _declaration.annotation().type),
+	LValue(_compilerContext, _declaration.annotation().type.get()),
 	m_baseStackOffset(m_context.baseStackOffsetOfVariable(_declaration)),
 	m_size(m_dataType->sizeOnStack())
 {
@@ -419,8 +417,11 @@ void StorageItem::setToZero(SourceLocation const&, bool _removeReference) const
 	}
 }
 
+/// Used in StorageByteArrayElement
+static FixedBytesType byteType(1);
+
 StorageByteArrayElement::StorageByteArrayElement(CompilerContext& _compilerContext):
-	LValue(_compilerContext, TypeProvider::byte())
+	LValue(_compilerContext, &byteType)
 {
 }
 
@@ -471,8 +472,8 @@ void StorageByteArrayElement::setToZero(SourceLocation const&, bool _removeRefer
 	m_context << Instruction::SWAP1 << Instruction::SSTORE;
 }
 
-StorageArrayLength::StorageArrayLength(CompilerContext& _compilerContext, ArrayType const& _arrayType):
-	LValue(_compilerContext, _arrayType.memberType("length")),
+StorageArrayLength::StorageArrayLength(CompilerContext& _compilerContext, const ArrayType& _arrayType):
+	LValue(_compilerContext, _arrayType.memberType("length").get()),
 	m_arrayType(_arrayType)
 {
 	solAssert(m_arrayType.isDynamicallySized(), "");

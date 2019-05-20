@@ -2,9 +2,8 @@
 	let a := mload(0)
 	for { } a {} {}
 }
-// ====
-// step: expressionJoiner
 // ----
+// expressionJoiner
 // {
 //     let a := mload(0)
 //     for {

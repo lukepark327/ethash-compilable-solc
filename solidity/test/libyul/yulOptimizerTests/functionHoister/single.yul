@@ -1,11 +1,10 @@
+// yul
 {
     let a:u256
     function f() {}
 }
-// ====
-// step: functionHoister
-// yul: true
 // ----
+// functionHoister
 // {
 //     let a:u256
 //     function f()

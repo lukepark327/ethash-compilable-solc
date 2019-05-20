@@ -3,9 +3,8 @@
 	function g(b, c) -> y { y := mul(mload(c), f(b)) }
 	let y := g(calldatasize(), 7)
 }
-// ====
-// step: expressionInliner
 // ----
+// expressionInliner
 // {
 //     function f(a) -> x
 //     {

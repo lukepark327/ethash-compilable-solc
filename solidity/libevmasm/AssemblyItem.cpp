@@ -110,8 +110,7 @@ int AssemblyItem::returnValues() const
 		return 1;
 	case Tag:
 		return 0;
-	default:
-		break;
+	default:;
 	}
 	return 0;
 }
@@ -136,10 +135,9 @@ bool AssemblyItem::canBeFunctional() const
 		return true;
 	case Tag:
 		return false;
-	default:
-		break;
+	default:;
 	}
-	return false;
+	return 0;
 }
 
 string AssemblyItem::getJumpTypeAsString() const
@@ -170,7 +168,7 @@ string AssemblyItem::toAssemblyText() const
 		break;
 	}
 	case Push:
-		text = toHex(toCompactBigEndian(data(), 1), HexPrefix::Add);
+		text = toHex(toCompactBigEndian(data(), 1), 1, HexPrefix::Add);
 		break;
 	case PushString:
 		text = string("data_") + toHex(data());
@@ -231,7 +229,7 @@ ostream& dev::eth::operator<<(ostream& _out, AssemblyItem const& _item)
 	{
 	case Operation:
 		_out << " " << instructionInfo(_item.instruction()).name;
-		if (_item.instruction() == Instruction::JUMP || _item.instruction() == Instruction::JUMPI)
+		if (_item.instruction() == solidity::Instruction::JUMP || _item.instruction() == solidity::Instruction::JUMPI)
 			_out << "\t" << _item.getJumpTypeAsString();
 		break;
 	case Push:

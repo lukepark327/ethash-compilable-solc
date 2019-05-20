@@ -28,15 +28,15 @@
 #include <stdexcept>
 #include <sstream>
 
-using namespace dev::solidity::test;
-using namespace dev::solidity;
-using namespace dev::formatting;
 using namespace dev;
+using namespace solidity;
+using namespace dev::solidity::test;
+using namespace dev::solidity::test::formatting;
 using namespace std;
 using namespace boost::unit_test;
 
-SMTCheckerTest::SMTCheckerTest(string const& _filename, langutil::EVMVersion _evmVersion)
-: SyntaxTest(_filename, _evmVersion)
+SMTCheckerTest::SMTCheckerTest(string const& _filename)
+: SyntaxTest(_filename)
 {
 	if (!boost::algorithm::ends_with(_filename, ".sol"))
 		BOOST_THROW_EXCEPTION(runtime_error("Invalid test contract file name: \"" + _filename + "\"."));
@@ -49,7 +49,7 @@ SMTCheckerTest::SMTCheckerTest(string const& _filename, langutil::EVMVersion _ev
 		BOOST_THROW_EXCEPTION(runtime_error("Invalid JSON file."));
 }
 
-bool SMTCheckerTest::run(ostream& _stream, string const& _linePrefix, bool _formatted)
+bool SMTCheckerTest::run(ostream& _stream, string const& _linePrefix, bool const _formatted)
 {
 	StandardCompiler compiler;
 

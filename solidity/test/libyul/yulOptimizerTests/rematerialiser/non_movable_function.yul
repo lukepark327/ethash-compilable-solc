@@ -5,9 +5,8 @@
     let c := a
     mstore(add(a, b), c)
 }
-// ====
-// step: rematerialiser
 // ----
+// rematerialiser
 // {
 //     function f(x) -> y
 //     {

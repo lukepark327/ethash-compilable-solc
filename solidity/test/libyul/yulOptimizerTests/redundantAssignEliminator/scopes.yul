@@ -6,9 +6,8 @@
         a := 2
     }
 }
-// ====
-// step: redundantAssignEliminator
 // ----
+// redundantAssignEliminator
 // {
 //     let a
 //     {

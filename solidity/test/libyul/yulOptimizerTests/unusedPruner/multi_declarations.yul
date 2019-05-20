@@ -1,8 +1,7 @@
 {
     let x, y
 }
-// ====
-// step: unusedPruner
 // ----
+// unusedPruner
 // {
 // }

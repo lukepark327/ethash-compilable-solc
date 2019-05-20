@@ -21,7 +21,7 @@
  */
 
 #include <libyul/optimiser/FunctionHoister.h>
-#include <libyul/optimiser/OptimizerUtilities.h>
+#include <libyul/optimiser/Utilities.h>
 #include <libyul/AsmData.h>
 
 #include <libdevcore/CommonData.h>
@@ -29,6 +29,7 @@
 using namespace std;
 using namespace dev;
 using namespace yul;
+using namespace dev::solidity;
 
 void FunctionHoister::operator()(Block& _block)
 {

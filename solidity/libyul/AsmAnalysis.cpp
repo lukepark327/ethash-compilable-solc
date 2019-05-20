@@ -24,8 +24,6 @@
 #include <libyul/AsmScopeFiller.h>
 #include <libyul/AsmScope.h>
 #include <libyul/AsmAnalysisInfo.h>
-#include <libyul/Utilities.h>
-#include <libyul/Exceptions.h>
 
 #include <liblangutil/ErrorReporter.h>
 
@@ -34,16 +32,15 @@
 
 #include <memory>
 #include <functional>
-#include <utility>
 
 using namespace std;
 using namespace dev;
 using namespace langutil;
 using namespace yul;
 using namespace dev;
+using namespace dev::solidity;
 
-namespace
-{
+namespace {
 
 set<string> const builtinTypes{"bool", "u8", "s8", "u32", "s32", "u64", "s64", "u128", "s128", "u256", "s256"};
 
@@ -51,40 +48,10 @@ set<string> const builtinTypes{"bool", "u8", "s8", "u32", "s32", "u64", "s64", "
 
 bool AsmAnalyzer::analyze(Block const& _block)
 {
-	bool success = false;
-	try
-	{
-		if (!(ScopeFiller(m_info, m_errorReporter))(_block))
-			return false;
+	if (!(ScopeFiller(m_info, m_errorReporter))(_block))
+		return false;
 
-		success = (*this)(_block);
-		if (!success)
-			solAssert(m_errorReporter.hasErrors(), "No success but no error.");
-	}
-	catch (FatalError const&)
-	{
-		// This FatalError con occur if the errorReporter has too many errors.
-		solAssert(!m_errorReporter.errors().empty(), "Fatal error detected, but no error is reported.");
-	}
-	return success && !m_errorReporter.hasErrors();
-}
-
-AsmAnalysisInfo AsmAnalyzer::analyzeStrictAssertCorrect(
-	shared_ptr<Dialect> _dialect,
-	Block const& _ast
-)
-{
-	ErrorList errorList;
-	langutil::ErrorReporter errors(errorList);
-	yul::AsmAnalysisInfo analysisInfo;
-	bool success = yul::AsmAnalyzer(
-		analysisInfo,
-		errors,
-		Error::Type::SyntaxError,
-		_dialect
-	).analyze(_ast);
-	solAssert(success && errorList.empty(), "Invalid assembly/yul code.");
-	return analysisInfo;
+	return (*this)(_block);
 }
 
 bool AsmAnalyzer::operator()(Label const& _label)
@@ -95,7 +62,7 @@ bool AsmAnalyzer::operator()(Label const& _label)
 		"The use of labels is disallowed. Please use \"if\", \"switch\", \"for\" or function calls instead."
 	);
 	m_info.stackHeightInfo[&_label] = m_stackHeight;
-	warnOnInstructions(dev::eth::Instruction::JUMPDEST, _label.location);
+	warnOnInstructions(solidity::Instruction::JUMPDEST, _label.location);
 	return true;
 }
 
@@ -134,8 +101,8 @@ bool AsmAnalyzer::operator()(Literal const& _literal)
 	}
 	else if (_literal.kind == LiteralKind::Boolean)
 	{
-		solAssert(m_dialect->flavour == AsmFlavour::Yul, "");
-		solAssert(_literal.value == "true"_yulstring || _literal.value == "false"_yulstring, "");
+		solAssert(m_flavour == AsmFlavour::Yul, "");
+		solAssert(_literal.value == YulString{string("true")} || _literal.value == YulString{string("false")}, "");
 	}
 	m_info.stackHeightInfo[&_literal] = m_stackHeight;
 	return true;
@@ -197,7 +164,7 @@ bool AsmAnalyzer::operator()(Identifier const& _identifier)
 
 bool AsmAnalyzer::operator()(FunctionalInstruction const& _instr)
 {
-	solAssert(m_dialect->flavour != AsmFlavour::Yul, "");
+	solAssert(m_flavour != AsmFlavour::Yul, "");
 	bool success = true;
 	for (auto const& arg: _instr.arguments | boost::adaptors::reversed)
 		if (!expectExpression(arg))
@@ -215,9 +182,9 @@ bool AsmAnalyzer::operator()(ExpressionStatement const& _statement)
 {
 	int initialStackHeight = m_stackHeight;
 	bool success = boost::apply_visitor(*this, _statement.expression);
-	if (m_stackHeight != initialStackHeight && (m_dialect->flavour != AsmFlavour::Loose || m_errorTypeForLoose))
+	if (m_stackHeight != initialStackHeight && (m_flavour != AsmFlavour::Loose || m_errorTypeForLoose))
 	{
-		Error::Type errorType = m_dialect->flavour == AsmFlavour::Loose ? *m_errorTypeForLoose : Error::Type::TypeError;
+		Error::Type errorType = m_flavour == AsmFlavour::Loose ? *m_errorTypeForLoose : Error::Type::TypeError;
 		string msg =
 			"Top-level expressions are not supposed to return values (this expression returns " +
 			to_string(m_stackHeight - initialStackHeight) +
@@ -277,18 +244,9 @@ bool AsmAnalyzer::operator()(VariableDeclaration const& _varDecl)
 	{
 		int const stackHeight = m_stackHeight;
 		success = boost::apply_visitor(*this, *_varDecl.value);
-		int numValues = m_stackHeight - stackHeight;
-		if (numValues != numVariables)
+		if ((m_stackHeight - stackHeight) != numVariables)
 		{
-			m_errorReporter.declarationError(_varDecl.location,
-				"Variable count mismatch: " +
-				to_string(numVariables) +
-				" variables and " +
-				to_string(numValues) +
-				" values."
-			);
-			// Adjust stack height to avoid misleading additional errors.
-			m_stackHeight += numVariables - numValues;
+			m_errorReporter.declarationError(_varDecl.location, "Variable count mismatch.");
 			return false;
 		}
 	}
@@ -330,18 +288,9 @@ bool AsmAnalyzer::operator()(FunctionCall const& _funCall)
 {
 	solAssert(!_funCall.functionName.name.empty(), "");
 	bool success = true;
-	size_t parameters = 0;
+	size_t arguments = 0;
 	size_t returns = 0;
-	bool needsLiteralArguments = false;
-	if (BuiltinFunction const* f = m_dialect->builtin(_funCall.functionName.name))
-	{
-		// TODO: compare types, too
-		parameters = f->parameters.size();
-		returns = f->returns.size();
-		if (f->literalArguments)
-			needsLiteralArguments = true;
-	}
-	else if (!m_currentScope->lookup(_funCall.functionName.name, Scope::Visitor(
+	if (!m_currentScope->lookup(_funCall.functionName.name, Scope::Visitor(
 		[&](Scope::Variable const&)
 		{
 			m_errorReporter.typeError(
@@ -361,7 +310,7 @@ bool AsmAnalyzer::operator()(FunctionCall const& _funCall)
 		[&](Scope::Function const& _fun)
 		{
 			/// TODO: compare types too
-			parameters = _fun.arguments.size();
+			arguments = _fun.arguments.size();
 			returns = _fun.returns.size();
 		}
 	)))
@@ -370,30 +319,21 @@ bool AsmAnalyzer::operator()(FunctionCall const& _funCall)
 		success = false;
 	}
 	if (success)
-		if (_funCall.arguments.size() != parameters)
+	{
+		if (_funCall.arguments.size() != arguments)
 		{
 			m_errorReporter.typeError(
 				_funCall.functionName.location,
-				"Function expects " +
-				to_string(parameters) +
-				" arguments but got " +
+				"Expected " + to_string(arguments) + " arguments but got " +
 				to_string(_funCall.arguments.size()) + "."
 			);
 			success = false;
 		}
-
+	}
 	for (auto const& arg: _funCall.arguments | boost::adaptors::reversed)
-	{
 		if (!expectExpression(arg))
 			success = false;
-		else if (needsLiteralArguments && arg.type() != typeid(Literal))
-			m_errorReporter.typeError(
-				_funCall.functionName.location,
-				"Function expects direct literals as arguments."
-			);
-	}
-	// Use argument size instead of parameter count to avoid misleading errors.
-	m_stackHeight += int(returns) - int(_funCall.arguments.size());
+	m_stackHeight += int(returns) - int(arguments);
 	m_info.stackHeightInfo[&_funCall] = m_stackHeight;
 	return success;
 }
@@ -423,53 +363,26 @@ bool AsmAnalyzer::operator()(Switch const& _switch)
 	if (!expectExpression(*_switch.expression))
 		success = false;
 
-	if (m_dialect->flavour == AsmFlavour::Yul)
-	{
-		YulString caseType;
-		bool mismatchingTypes = false;
-		for (auto const& _case: _switch.cases)
-			if (_case.value)
-			{
-				if (caseType.empty())
-					caseType = _case.value->type;
-				else if (caseType != _case.value->type)
-				{
-					mismatchingTypes = true;
-					break;
-				}
-			}
-		if (mismatchingTypes)
-			m_errorReporter.typeError(
-				_switch.location,
-				"Switch cases have non-matching types."
-			);
-	}
-
-	set<u256> cases;
+	set<tuple<LiteralKind, YulString>> cases;
 	for (auto const& _case: _switch.cases)
 	{
 		if (_case.value)
 		{
 			int const initialStackHeight = m_stackHeight;
-			bool isCaseValueValid = true;
 			// We cannot use "expectExpression" here because *_case.value is not a
 			// Statement and would be converted to a Statement otherwise.
 			if (!(*this)(*_case.value))
-			{
-				isCaseValueValid = false;
 				success = false;
-			}
 			expectDeposit(1, initialStackHeight, _case.value->location);
 			m_stackHeight--;
 
-			// If the case value is not valid, we should not insert it into cases.
-			yulAssert(isCaseValueValid || m_errorReporter.hasErrors(), "Invalid case value.");
 			/// Note: the parser ensures there is only one default case
-			if (isCaseValueValid && !cases.insert(valueOfLiteral(*_case.value)).second)
+			auto val = make_tuple(_case.value->kind, _case.value->value);
+			if (!cases.insert(val).second)
 			{
 				m_errorReporter.declarationError(
 					_case.location,
-					"Duplicate case defined."
+					"Duplicate case defined"
 				);
 				success = false;
 			}
@@ -489,7 +402,7 @@ bool AsmAnalyzer::operator()(ForLoop const& _for)
 {
 	solAssert(_for.condition, "");
 
-	Scope* outerScope = m_currentScope;
+	Scope* originalScope = m_currentScope;
 
 	bool success = true;
 	if (!(*this)(_for.pre))
@@ -502,35 +415,16 @@ bool AsmAnalyzer::operator()(ForLoop const& _for)
 	if (!expectExpression(*_for.condition))
 		success = false;
 	m_stackHeight--;
-
-	// backup outer for-loop & create new state
-	auto outerForLoop = m_currentForLoop;
-	m_currentForLoop = &_for;
-
 	if (!(*this)(_for.body))
 		success = false;
-
 	if (!(*this)(_for.post))
 		success = false;
 
 	m_stackHeight -= scope(&_for.pre).numberOfVariables();
 	m_info.stackHeightInfo[&_for] = m_stackHeight;
-	m_currentScope = outerScope;
-	m_currentForLoop = outerForLoop;
+	m_currentScope = originalScope;
 
 	return success;
-}
-
-bool AsmAnalyzer::operator()(Break const& _break)
-{
-	m_info.stackHeightInfo[&_break] = m_stackHeight;
-	return true;
-}
-
-bool AsmAnalyzer::operator()(Continue const& _continue)
-{
-	m_info.stackHeightInfo[&_continue] = m_stackHeight;
-	return true;
 }
 
 bool AsmAnalyzer::operator()(Block const& _block)
@@ -658,7 +552,7 @@ Scope& AsmAnalyzer::scope(Block const* _block)
 }
 void AsmAnalyzer::expectValidType(string const& type, SourceLocation const& _location)
 {
-	if (m_dialect->flavour != AsmFlavour::Yul)
+	if (m_flavour != AsmFlavour::Yul)
 		return;
 
 	if (!builtinTypes.count(type))
@@ -668,84 +562,70 @@ void AsmAnalyzer::expectValidType(string const& type, SourceLocation const& _loc
 		);
 }
 
-void AsmAnalyzer::warnOnInstructions(dev::eth::Instruction _instr, SourceLocation const& _location)
+void AsmAnalyzer::warnOnInstructions(solidity::Instruction _instr, SourceLocation const& _location)
 {
 	// We assume that returndatacopy, returndatasize and staticcall are either all available
 	// or all not available.
 	solAssert(m_evmVersion.supportsReturndata() == m_evmVersion.hasStaticCall(), "");
 	// Similarly we assume bitwise shifting and create2 go together.
 	solAssert(m_evmVersion.hasBitwiseShifting() == m_evmVersion.hasCreate2(), "");
-	solAssert(m_dialect->flavour != AsmFlavour::Yul, "");
 
-	auto errorForVM = [=](string const& vmKindMessage) {
-		m_errorReporter.typeError(
+	if (_instr == solidity::Instruction::EXTCODEHASH)
+		m_errorReporter.warning(
 			_location,
 			"The \"" +
 			boost::to_lower_copy(instructionInfo(_instr).name)
-			+ "\" instruction is " +
-			vmKindMessage +
-			" VMs " +
-			" (you are currently compiling for \"" +
-			m_evmVersion.name() +
-			"\")."
+			+ "\" instruction is not supported by the VM version \"" +
+			"" + m_evmVersion.name() +
+			"\" you are currently compiling for. " +
+			"It will be interpreted as an invalid instruction on this VM."
 		);
-	};
-
-	if ((
-		_instr == dev::eth::Instruction::RETURNDATACOPY ||
-		_instr == dev::eth::Instruction::RETURNDATASIZE
-	) && !m_evmVersion.supportsReturndata())
-	{
-		errorForVM("only available for Byzantium-compatible");
-	}
-	else if (_instr == dev::eth::Instruction::STATICCALL && !m_evmVersion.hasStaticCall())
-	{
-		errorForVM("only available for Byzantium-compatible");
-	}
 	else if ((
-		_instr == dev::eth::Instruction::SHL ||
-		_instr == dev::eth::Instruction::SHR ||
-		_instr == dev::eth::Instruction::SAR
+		_instr == solidity::Instruction::RETURNDATACOPY ||
+		_instr == solidity::Instruction::RETURNDATASIZE ||
+		_instr == solidity::Instruction::STATICCALL
+	) && !m_evmVersion.supportsReturndata())
+		m_errorReporter.warning(
+			_location,
+			"The \"" +
+			boost::to_lower_copy(instructionInfo(_instr).name)
+			+ "\" instruction is only available for Byzantium-compatible VMs. " +
+			"You are currently compiling for \"" +
+			m_evmVersion.name() +
+			"\", where it will be interpreted as an invalid instruction."
+		);
+	else if ((
+		_instr == solidity::Instruction::SHL ||
+		_instr == solidity::Instruction::SHR ||
+		_instr == solidity::Instruction::SAR ||
+		_instr == solidity::Instruction::CREATE2
 	) && !m_evmVersion.hasBitwiseShifting())
+		m_errorReporter.warning(
+			_location,
+			"The \"" +
+			boost::to_lower_copy(instructionInfo(_instr).name)
+			+ "\" instruction is only available for Constantinople-compatible VMs. " +
+			"You are currently compiling for \"" +
+			m_evmVersion.name() +
+			"\", where it will be interpreted as an invalid instruction."
+		);
+
+	if (_instr == solidity::Instruction::JUMP || _instr == solidity::Instruction::JUMPI || _instr == solidity::Instruction::JUMPDEST)
 	{
-		errorForVM("only available for Constantinople-compatible");
-	}
-	else if (_instr == dev::eth::Instruction::CREATE2 && !m_evmVersion.hasCreate2())
-	{
-		errorForVM("only available for Constantinople-compatible");
-	}
-	else if (_instr == dev::eth::Instruction::EXTCODEHASH && !m_evmVersion.hasExtCodeHash())
-	{
-		errorForVM("only available for Constantinople-compatible");
-	}
-	else if (
-		_instr == dev::eth::Instruction::JUMP ||
-		_instr == dev::eth::Instruction::JUMPI ||
-		_instr == dev::eth::Instruction::JUMPDEST
-	)
-	{
-		if (m_dialect->flavour == AsmFlavour::Loose)
-			m_errorReporter.error(
-				m_errorTypeForLoose ? *m_errorTypeForLoose : Error::Type::Warning,
-				_location,
-				"Jump instructions and labels are low-level EVM features that can lead to "
-				"incorrect stack access. Because of that they are discouraged. "
-				"Please consider using \"switch\", \"if\" or \"for\" statements instead."
-			);
-		else
-			m_errorReporter.error(
-				Error::Type::SyntaxError,
-				_location,
-				"Jump instructions and labels are low-level EVM features that can lead to "
-				"incorrect stack access. Because of that they are disallowed in strict assembly. "
-				"Use functions, \"switch\", \"if\" or \"for\" statements instead."
-			);
+		solAssert(m_flavour == AsmFlavour::Loose, "");
+		m_errorReporter.error(
+			m_errorTypeForLoose ? *m_errorTypeForLoose : Error::Type::Warning,
+			_location,
+			"Jump instructions and labels are low-level EVM features that can lead to "
+			"incorrect stack access. Because of that they are discouraged. "
+			"Please consider using \"switch\", \"if\" or \"for\" statements instead."
+		);
 	}
 }
 
 void AsmAnalyzer::checkLooseFeature(SourceLocation const& _location, string const& _description)
 {
-	if (m_dialect->flavour != AsmFlavour::Loose)
+	if (m_flavour != AsmFlavour::Loose)
 		solAssert(false, _description);
 	else if (m_errorTypeForLoose)
 		m_errorReporter.error(*m_errorTypeForLoose, _location, _description);

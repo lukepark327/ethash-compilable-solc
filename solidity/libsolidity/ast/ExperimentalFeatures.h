@@ -35,13 +35,13 @@ enum class ExperimentalFeature
 	TestOnlyAnalysis
 };
 
-static std::map<ExperimentalFeature, bool> const ExperimentalFeatureOnlyAnalysis =
+static const std::map<ExperimentalFeature, bool> ExperimentalFeatureOnlyAnalysis =
 {
 	{ ExperimentalFeature::SMTChecker, true },
 	{ ExperimentalFeature::TestOnlyAnalysis, true },
 };
 
-static std::map<std::string, ExperimentalFeature> const ExperimentalFeatureNames =
+static const std::map<std::string, ExperimentalFeature> ExperimentalFeatureNames =
 {
 	{ "ABIEncoderV2", ExperimentalFeature::ABIEncoderV2 },
 	{ "SMTChecker", ExperimentalFeature::SMTChecker },

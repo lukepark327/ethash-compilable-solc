@@ -24,7 +24,6 @@
 #include <libyul/optimiser/ASTWalker.h>
 
 #include <libyul/AsmData.h>
-#include <libyul/Dialect.h>
 
 #include <libdevcore/CommonData.h>
 
@@ -34,6 +33,7 @@ using namespace std;
 using namespace dev;
 using namespace langutil;
 using namespace yul;
+using namespace dev::solidity;
 
 void ExpressionSplitter::operator()(FunctionalInstruction& _instruction)
 {
@@ -43,11 +43,6 @@ void ExpressionSplitter::operator()(FunctionalInstruction& _instruction)
 
 void ExpressionSplitter::operator()(FunctionCall& _funCall)
 {
-	if (BuiltinFunction const* builtin = m_dialect.builtin(_funCall.functionName.name))
-		if (builtin->literalArguments)
-			// We cannot outline function arguments that have to be literals
-			return;
-
 	for (auto& arg: _funCall.arguments | boost::adaptors::reversed)
 		outlineExpression(arg);
 }
@@ -105,7 +100,7 @@ void ExpressionSplitter::outlineExpression(Expression& _expr)
 	m_statementsToPrefix.emplace_back(VariableDeclaration{
 		location,
 		{{TypedName{location, var, {}}}},
-		make_unique<Expression>(std::move(_expr))
+		make_shared<Expression>(std::move(_expr))
 	});
 	_expr = Identifier{location, var};
 }

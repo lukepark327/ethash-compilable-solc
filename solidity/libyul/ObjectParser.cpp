@@ -42,7 +42,7 @@ shared_ptr<Object> ObjectParser::parse(shared_ptr<Scanner> const& _scanner, bool
 		{
 			// Special case: Code-only form.
 			object = make_shared<Object>();
-			object->name = "object"_yulstring;
+			object->name = YulString{"object"};
 			object->code = parseBlock();
 			if (!object->code)
 				return nullptr;
@@ -104,7 +104,7 @@ shared_ptr<Block> ObjectParser::parseCode()
 
 shared_ptr<Block> ObjectParser::parseBlock()
 {
-	Parser parser(m_errorReporter, m_dialect);
+	Parser parser(m_errorReporter, m_flavour);
 	shared_ptr<Block> block = parser.parse(m_scanner, true);
 	yulAssert(block || m_errorReporter.hasErrors(), "Invalid block but no error!");
 	return block;

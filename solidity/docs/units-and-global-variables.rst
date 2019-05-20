@@ -103,11 +103,11 @@ Block and Transaction Properties
     values will be zero.
 
 .. note::
-    The function ``blockhash`` was previously known as ``block.blockhash``, which was deprecated in
+    The function ``blockhash`` was previously known as ``block.blockhash``. It was deprecated in
     version 0.4.22 and removed in version 0.5.0.
 
 .. note::
-    The function ``gasleft`` was previously known as ``msg.gas``, which was deprecated in
+    The function ``gasleft`` was previously known as ``msg.gas``. It was deprecated in
     version 0.4.21 and removed in version 0.5.0.
 
 .. index:: abi, encoding, packed
@@ -117,7 +117,7 @@ ABI Encoding and Decoding Functions
 
 - ``abi.decode(bytes memory encodedData, (...)) returns (...)``: ABI-decodes the given data, while the types are given in parentheses as second argument. Example: ``(uint a, uint[2] memory b, bytes memory c) = abi.decode(data, (uint, uint[2], bytes))``
 - ``abi.encode(...) returns (bytes memory)``: ABI-encodes the given arguments
-- ``abi.encodePacked(...) returns (bytes memory)``: Performs :ref:`packed encoding <abi_packed_mode>` of the given arguments. Note that packed encoding can be ambiguous!
+- ``abi.encodePacked(...) returns (bytes memory)``: Performs :ref:`packed encoding <abi_packed_mode>` of the given arguments
 - ``abi.encodeWithSelector(bytes4 selector, ...) returns (bytes memory)``: ABI-encodes the given arguments starting from the second and prepends the given four-byte selector
 - ``abi.encodeWithSignature(string memory signature, ...) returns (bytes memory)``: Equivalent to ``abi.encodeWithSelector(bytes4(keccak256(bytes(signature))), ...)```
 
@@ -156,52 +156,29 @@ Mathematical and Cryptographic Functions
 
 ``addmod(uint x, uint y, uint k) returns (uint)``:
     compute ``(x + y) % k`` where the addition is performed with arbitrary precision and does not wrap around at ``2**256``. Assert that ``k != 0`` starting from version 0.5.0.
-
 ``mulmod(uint x, uint y, uint k) returns (uint)``:
     compute ``(x * y) % k`` where the multiplication is performed with arbitrary precision and does not wrap around at ``2**256``. Assert that ``k != 0`` starting from version 0.5.0.
-
 ``keccak256(bytes memory) returns (bytes32)``:
     compute the Keccak-256 hash of the input
-
-.. note::
-
-    There used to be an alias for ``keccak256`` called ``sha3``, which was removed in version 0.5.0.
-
 ``sha256(bytes memory) returns (bytes32)``:
     compute the SHA-256 hash of the input
-
 ``ripemd160(bytes memory) returns (bytes20)``:
     compute RIPEMD-160 hash of the input
-
 ``ecrecover(bytes32 hash, uint8 v, bytes32 r, bytes32 s) returns (address)``:
-    recover the address associated with the public key from elliptic curve signature or return zero on error.
-    The function parameters correspond to ECDSA values of the signature:
-
-    ``r`` = first 32 bytes of signature
-    ``s`` = second 32 bytes of signature
-    ``v`` = final 1 byte of signature
-
-    ``ecrecover`` returns an ``address``, and not an ``address payable``. See :ref:`address payable<address>` for
-    conversion, in case you need to transfer funds to the recovered address.
-
-    For further details, read `example usage <https://ethereum.stackexchange.com/q/1777/222>`_.
-
-.. warning::
-
-    If you use ``ecrecover``, be aware that a valid signature can be turned into a different valid signature without
-    requiring knowledge of the corresponding private key. In the Homestead hard fork, this issue was fixed
-    for _transaction_ signatures (see `EIP-2 <http://eips.ethereum.org/EIPS/eip-2#specification>`_), but
-    the ecrecover function remained unchanged.
-
-    This is usually not a problem unless you require signatures to be unique or
-    use them to identify items. OpenZeppelin have a `ECDSA helper library <https://docs.openzeppelin.org/docs/cryptography_ecdsa>`_ that you can use as a wrapper for ``ecrecover`` without this issue.
+    recover the address associated with the public key from elliptic curve signature or return zero on error
+    (`example usage <https://ethereum.stackexchange.com/q/1777/222>`_)
 
 .. note::
+   Function ``ecrecover`` returns an ``address``, and not an ``address
+   payable``. See :ref:`address payable<address>` for conversion, in case you need
+   to transfer funds to the recovered address.
 
-    When running ``sha256``, ``ripemd160`` or ``ecrecover`` on a *private blockchain*, you might encounter Out-of-Gas. This is because these functions are implemented as "precompiled contracts" and only really exist after they receive the first message (although their contract code is hardcoded). Messages to non-existing contracts are more expensive and thus the execution might run into an Out-of-Gas error. A workaround for this problem is to first send Wei (1 for example) to each of the contracts before you use them in your actual contracts. This is not an issue on the main or test net.
+It might be that you run into Out-of-Gas for ``sha256``, ``ripemd160`` or ``ecrecover`` on a *private blockchain*. The reason for this is that those are implemented as so-called precompiled contracts and these contracts only really exist after they received the first message (although their contract code is hardcoded). Messages to non-existing contracts are more expensive and thus the execution runs into an Out-of-Gas error. A workaround for this problem is to first send e.g. 1 Wei to each of the contracts before you use them in your actual contracts. This is not an issue on the official or test net.
+
+.. note::
+    There used to be an alias for ``keccak256`` called ``sha3``, which was removed in version 0.5.0.
 
 .. index:: balance, send, transfer, call, callcode, delegatecall, staticcall
-
 .. _address_related:
 
 Members of Address Types
@@ -221,10 +198,6 @@ Members of Address Types
     issue low-level ``STATICCALL`` with the given payload, returns success condition and return data, forwards all available gas, adjustable
 
 For more information, see the section on :ref:`address`.
-
-.. warning::
-    You should avoid using ``.call()`` whenever possible when executing another contract function as it bypasses type checking,
-    function existence check, and argument packing.
 
 .. warning::
     There are some dangers in using ``send``: The transfer fails if the call stack depth is at 1024
@@ -267,36 +240,3 @@ Furthermore, all functions of the current contract are callable directly includi
 .. note::
     Prior to version 0.5.0, there was a function called ``suicide`` with the same
     semantics as ``selfdestruct``.
-
-.. index:: type, creationCode, runtimeCode
-
-.. _meta-type:
-
-Type Information
-----------------
-
-The expression ``type(X)`` can be used to retrieve information about the
-type ``X``. Currently, there is limited support for this feature, but
-it might be expanded in the future. The following properties are
-available for a contract type ``C``:
-
-``type(C).name``:
-    The name of the contract.
-
-``type(C).creationCode``:
-    Memory byte array that contains the creation bytecode of the contract.
-    This can be used in inline assembly to build custom creation routines,
-    especially by using the ``create2`` opcode.
-    This property can **not** be accessed in the contract itself or any
-    derived contract. It causes the bytecode to be included in the bytecode
-    of the call site and thus circular references like that are not possible.
-
-``type(C).runtimeCode``:
-    Memory byte array that contains the runtime bytecode of the contract.
-    This is the code that is usually deployed by the constructor of ``C``.
-    If ``C`` has a constructor that uses inline assembly, this might be
-    different from the actually deployed bytecode. Also note that libraries
-    modify their runtime bytecode at time of deployment to guard against
-    regular calls.
-    The same restrictions as with ``.creationCode`` also apply for this
-    property.

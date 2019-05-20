@@ -13,9 +13,8 @@
     y := 8
     mstore(x, 0)
 }
-// ====
-// step: redundantAssignEliminator
 // ----
+// redundantAssignEliminator
 // {
 //     let x
 //     let y

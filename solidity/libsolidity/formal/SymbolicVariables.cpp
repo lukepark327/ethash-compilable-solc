@@ -18,8 +18,8 @@
 #include <libsolidity/formal/SymbolicVariables.h>
 
 #include <libsolidity/formal/SymbolicTypes.h>
+
 #include <libsolidity/ast/AST.h>
-#include <libsolidity/ast/TypeProvider.h>
 
 using namespace std;
 using namespace dev;
@@ -27,35 +27,14 @@ using namespace dev::solidity;
 
 SymbolicVariable::SymbolicVariable(
 	TypePointer _type,
-	string _uniqueName,
+	string const& _uniqueName,
 	smt::SolverInterface& _interface
 ):
 	m_type(move(_type)),
-	m_uniqueName(move(_uniqueName)),
+	m_uniqueName(_uniqueName),
 	m_interface(_interface),
 	m_ssa(make_shared<SSAVariable>())
 {
-	solAssert(m_type, "");
-	m_sort = smtSort(*m_type);
-	solAssert(m_sort, "");
-}
-
-SymbolicVariable::SymbolicVariable(
-	smt::SortPointer _sort,
-	string _uniqueName,
-	smt::SolverInterface& _interface
-):
-	m_sort(move(_sort)),
-	m_uniqueName(move(_uniqueName)),
-	m_interface(_interface),
-	m_ssa(make_shared<SSAVariable>())
-{
-	solAssert(m_sort, "");
-}
-
-smt::Expression SymbolicVariable::currentValue() const
-{
-	return valueAtIndex(m_ssa->index());
 }
 
 string SymbolicVariable::currentName() const
@@ -63,113 +42,54 @@ string SymbolicVariable::currentName() const
 	return uniqueSymbol(m_ssa->index());
 }
 
-smt::Expression SymbolicVariable::valueAtIndex(int _index) const
-{
-	return m_interface.newVariable(uniqueSymbol(_index), m_sort);
-}
-
 string SymbolicVariable::uniqueSymbol(unsigned _index) const
 {
 	return m_uniqueName + "_" + to_string(_index);
 }
 
-smt::Expression SymbolicVariable::increaseIndex()
-{
-	++(*m_ssa);
-	return currentValue();
-}
-
 SymbolicBoolVariable::SymbolicBoolVariable(
 	TypePointer _type,
-	string _uniqueName,
-	smt::SolverInterface& _interface
+	string const& _uniqueName,
+	smt::SolverInterface&_interface
 ):
-	SymbolicVariable(move(_type), move(_uniqueName), _interface)
+	SymbolicVariable(move(_type), _uniqueName, _interface)
 {
 	solAssert(m_type->category() == Type::Category::Bool, "");
 }
 
+smt::Expression SymbolicBoolVariable::valueAtIndex(int _index) const
+{
+	return m_interface.newVariable(uniqueSymbol(_index), make_shared<smt::Sort>(smt::Kind::Bool));
+}
+
 SymbolicIntVariable::SymbolicIntVariable(
 	TypePointer _type,
-	string _uniqueName,
+	string const& _uniqueName,
 	smt::SolverInterface& _interface
 ):
-	SymbolicVariable(move(_type), move(_uniqueName), _interface)
+	SymbolicVariable(move(_type), _uniqueName, _interface)
 {
 	solAssert(isNumber(m_type->category()), "");
 }
 
+smt::Expression SymbolicIntVariable::valueAtIndex(int _index) const
+{
+	return m_interface.newVariable(uniqueSymbol(_index), make_shared<smt::Sort>(smt::Kind::Int));
+}
+
 SymbolicAddressVariable::SymbolicAddressVariable(
-	string _uniqueName,
+	string const& _uniqueName,
 	smt::SolverInterface& _interface
 ):
-	SymbolicIntVariable(TypeProvider::uint(160), move(_uniqueName), _interface)
+	SymbolicIntVariable(make_shared<IntegerType>(160), _uniqueName, _interface)
 {
 }
 
 SymbolicFixedBytesVariable::SymbolicFixedBytesVariable(
 	unsigned _numBytes,
-	string _uniqueName,
+	string const& _uniqueName,
 	smt::SolverInterface& _interface
 ):
-	SymbolicIntVariable(TypeProvider::uint(_numBytes * 8), move(_uniqueName), _interface)
+	SymbolicIntVariable(make_shared<IntegerType>(_numBytes * 8), _uniqueName, _interface)
 {
-}
-
-SymbolicFunctionVariable::SymbolicFunctionVariable(
-	TypePointer _type,
-	string _uniqueName,
-	smt::SolverInterface& _interface
-):
-	SymbolicVariable(move(_type), move(_uniqueName), _interface),
-	m_declaration(m_interface.newVariable(currentName(), m_sort))
-{
-	solAssert(m_type->category() == Type::Category::Function, "");
-}
-
-void SymbolicFunctionVariable::resetDeclaration()
-{
-	m_declaration = m_interface.newVariable(currentName(), m_sort);
-}
-
-smt::Expression SymbolicFunctionVariable::increaseIndex()
-{
-	++(*m_ssa);
-	resetDeclaration();
-	return currentValue();
-}
-
-smt::Expression SymbolicFunctionVariable::operator()(vector<smt::Expression> _arguments) const
-{
-	return m_declaration(_arguments);
-}
-
-SymbolicMappingVariable::SymbolicMappingVariable(
-	TypePointer _type,
-	string _uniqueName,
-	smt::SolverInterface& _interface
-):
-	SymbolicVariable(move(_type), move(_uniqueName), _interface)
-{
-	solAssert(isMapping(m_type->category()), "");
-}
-
-SymbolicArrayVariable::SymbolicArrayVariable(
-	TypePointer _type,
-	string _uniqueName,
-	smt::SolverInterface& _interface
-):
-	SymbolicVariable(move(_type), move(_uniqueName), _interface)
-{
-	solAssert(isArray(m_type->category()), "");
-}
-
-SymbolicEnumVariable::SymbolicEnumVariable(
-	TypePointer _type,
-	string _uniqueName,
-	smt::SolverInterface& _interface
-):
-	SymbolicVariable(move(_type), move(_uniqueName), _interface)
-{
-	solAssert(isEnum(m_type->category()), "");
 }

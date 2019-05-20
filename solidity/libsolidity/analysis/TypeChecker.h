@@ -24,10 +24,10 @@
 
 #include <liblangutil/EVMVersion.h>
 
+#include <libsolidity/ast/Types.h>
 #include <libsolidity/ast/ASTAnnotations.h>
 #include <libsolidity/ast/ASTForward.h>
 #include <libsolidity/ast/ASTVisitor.h>
-#include <libsolidity/ast/Types.h>
 
 namespace langutil
 {
@@ -48,7 +48,7 @@ class TypeChecker: private ASTConstVisitor
 {
 public:
 	/// @param _errorReporter provides the error logging functionality.
-	TypeChecker(langutil::EVMVersion _evmVersion, langutil::ErrorReporter& _errorReporter):
+	TypeChecker(EVMVersion _evmVersion, langutil::ErrorReporter& _errorReporter):
 		m_evmVersion(_evmVersion),
 		m_errorReporter(_errorReporter)
 	{}
@@ -62,8 +62,6 @@ public:
 	/// @returns the type of the given variable and throws if the type is not present
 	/// (this can happen for variables with non-explicit types before their types are resolved)
 	TypePointer const& type(VariableDeclaration const& _variable) const;
-
-	static bool typeSupportedByOldABIEncoder(Type const& _type, bool _isLibraryCall);
 
 private:
 
@@ -82,8 +80,6 @@ private:
 		FunctionCall const& _functionCall,
 		bool _abiEncoderV2
 	);
-
-	TypePointers typeCheckMetaTypeFunctionAndRetrieveReturnType(FunctionCall const& _functionCall);
 
 	/// Performs type checks and determines result types for type conversion FunctionCall nodes.
 	TypePointer typeCheckTypeConversionAndRetrieveReturnType(
@@ -158,7 +154,7 @@ private:
 
 	ContractDefinition const* m_scope = nullptr;
 
-	langutil::EVMVersion m_evmVersion;
+	EVMVersion m_evmVersion;
 
 	/// Flag indicating whether we are currently inside an EmitStatement.
 	bool m_insideEmitStatement = false;

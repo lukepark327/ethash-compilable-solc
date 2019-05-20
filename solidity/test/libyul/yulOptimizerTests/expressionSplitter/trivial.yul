@@ -1,9 +1,8 @@
 {
     mstore(add(calldataload(2), mload(3)), 8)
 }
-// ====
-// step: expressionSplitter
 // ----
+// expressionSplitter
 // {
 //     let _1 := 8
 //     let _2 := 3

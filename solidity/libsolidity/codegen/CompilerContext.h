@@ -22,28 +22,28 @@
 
 #pragma once
 
-#include <libsolidity/ast/ASTAnnotations.h>
-#include <libsolidity/ast/ASTForward.h>
-#include <libsolidity/ast/Types.h>
 #include <libsolidity/codegen/ABIFunctions.h>
 
-#include <libsolidity/interface/OptimiserSettings.h>
-
-#include <libevmasm/Assembly.h>
-#include <libevmasm/Instruction.h>
 #include <liblangutil/EVMVersion.h>
+
+#include <libsolidity/ast/ASTForward.h>
+#include <libsolidity/ast/Types.h>
+#include <libsolidity/ast/ASTAnnotations.h>
+
+#include <libevmasm/Instruction.h>
+#include <libevmasm/Assembly.h>
+
 #include <libdevcore/Common.h>
 
-#include <functional>
 #include <ostream>
 #include <stack>
 #include <queue>
 #include <utility>
+#include <functional>
 
 namespace dev {
 namespace solidity {
 
-class Compiler;
 
 /**
  * Context to be shared by all units that compile the same contract.
@@ -52,7 +52,7 @@ class Compiler;
 class CompilerContext
 {
 public:
-	explicit CompilerContext(langutil::EVMVersion _evmVersion, CompilerContext* _runtimeContext = nullptr):
+	explicit CompilerContext(EVMVersion _evmVersion = EVMVersion{}, CompilerContext* _runtimeContext = nullptr):
 		m_asm(std::make_shared<eth::Assembly>()),
 		m_evmVersion(_evmVersion),
 		m_runtimeContext(_runtimeContext),
@@ -62,7 +62,7 @@ public:
 			m_runtimeSub = size_t(m_asm->newSub(m_runtimeContext->m_asm).data());
 	}
 
-	langutil::EVMVersion const& evmVersion() const { return m_evmVersion; }
+	EVMVersion const& evmVersion() const { return m_evmVersion; }
 
 	/// Update currently enabled set of experimental features.
 	void setExperimentalFeatures(std::set<ExperimentalFeature> const& _features) { m_experimentalFeatures = _features; }
@@ -77,9 +77,8 @@ public:
 	/// Returns the number of currently allocated local variables.
 	unsigned numberOfLocalVariables() const;
 
-	void setOtherCompilers(std::map<ContractDefinition const*, std::shared_ptr<Compiler const>> const& _otherCompilers) { m_otherCompilers = _otherCompilers; }
-	std::shared_ptr<eth::Assembly> compiledContract(ContractDefinition const& _contract) const;
-	std::shared_ptr<eth::Assembly> compiledContractRuntime(ContractDefinition const& _contract) const;
+	void setCompiledContracts(std::map<ContractDefinition const*, eth::Assembly const*> const& _contracts) { m_compiledContracts = _contracts; }
+	eth::Assembly const& compiledContract(ContractDefinition const& _contract) const;
 
 	void setStackOffset(int _offset) { m_asm->setDeposit(_offset); }
 	void adjustStackOffset(int _adjustment) { m_asm->adjustDeposit(_adjustment); }
@@ -203,7 +202,7 @@ public:
 
 	/// Append elements to the current instruction list and adjust @a m_stackOffset.
 	CompilerContext& operator<<(eth::AssemblyItem const& _item) { m_asm->append(_item); return *this; }
-	CompilerContext& operator<<(dev::eth::Instruction _instruction) { m_asm->append(_instruction); return *this; }
+	CompilerContext& operator<<(Instruction _instruction) { m_asm->append(_instruction); return *this; }
 	CompilerContext& operator<<(u256 const& _value) { m_asm->append(_value); return *this; }
 	CompilerContext& operator<<(bytes const& _data) { m_asm->append(_data); return *this; }
 
@@ -216,26 +215,25 @@ public:
 		std::string const& _assembly,
 		std::vector<std::string> const& _localVariables = std::vector<std::string>(),
 		std::set<std::string> const& _externallyUsedFunctions = std::set<std::string>(),
-		bool _system = false,
-		OptimiserSettings const& _optimiserSettings = OptimiserSettings::none()
+		bool _system = false
 	);
 
 	/// Appends arbitrary data to the end of the bytecode.
 	void appendAuxiliaryData(bytes const& _data) { m_asm->appendAuxiliaryDataToEnd(_data); }
 
 	/// Run optimisation step.
-	void optimise(OptimiserSettings const& _settings) { m_asm->optimise(translateOptimiserSettings(_settings)); }
+	void optimise(bool _fullOptimsation, unsigned _runs = 200) { m_asm->optimise(_fullOptimsation, m_evmVersion, true, _runs); }
 
 	/// @returns the runtime context if in creation mode and runtime context is set, nullptr otherwise.
-	CompilerContext* runtimeContext() const { return m_runtimeContext; }
+	CompilerContext* runtimeContext() { return m_runtimeContext; }
 	/// @returns the identifier of the runtime subroutine.
 	size_t runtimeSub() const { return m_runtimeSub; }
 
 	/// @returns a const reference to the underlying assembly.
 	eth::Assembly const& assembly() const { return *m_asm; }
-	/// @returns a shared pointer to the assembly.
-	/// Should be avoided except when adding sub-assemblies.
-	std::shared_ptr<eth::Assembly> assemblyPtr() const { return m_asm; }
+	/// @returns non-const reference to the underlying assembly. Should be avoided in favour of
+	/// wrappers in this class.
+	eth::Assembly& nonConstAssembly() { return *m_asm; }
 
 	/// @arg _sourceCodes is the map of input files to source code strings
 	std::string assemblyString(StringMap const& _sourceCodes = StringMap()) const
@@ -270,11 +268,9 @@ private:
 		std::vector<ContractDefinition const*>::const_iterator _searchStart
 	);
 	/// @returns an iterator to the contract directly above the given contract.
-	std::vector<ContractDefinition const*>::const_iterator superContract(ContractDefinition const& _contract) const;
+	std::vector<ContractDefinition const*>::const_iterator superContract(const ContractDefinition &_contract) const;
 	/// Updates source location set in the assembly.
 	void updateSourceLocation();
-
-	eth::Assembly::OptimiserSettings translateOptimiserSettings(OptimiserSettings const& _settings);
 
 	/**
 	 * Helper class that manages function labels and ensures that referenced functions are
@@ -296,7 +292,7 @@ private:
 		Declaration const* nextFunctionToCompile() const;
 		/// Informs the queue that we are about to compile the given function, i.e. removes
 		/// the function from the queue of functions to compile.
-		void startFunction(Declaration const& _function);
+		void startFunction(const Declaration &_function);
 
 		/// Labels pointing to the entry points of functions.
 		std::map<Declaration const*, eth::AssemblyItem> m_entryLabels;
@@ -310,11 +306,11 @@ private:
 
 	eth::AssemblyPointer m_asm;
 	/// Version of the EVM to compile against.
-	langutil::EVMVersion m_evmVersion;
+	EVMVersion m_evmVersion;
 	/// Activated experimental features.
 	std::set<ExperimentalFeature> m_experimentalFeatures;
 	/// Other already compiled contracts to be used in contract creation calls.
-	std::map<ContractDefinition const*, std::shared_ptr<Compiler const>> m_otherCompilers;
+	std::map<ContractDefinition const*, eth::Assembly const*> m_compiledContracts;
 	/// Storage offsets of state variables
 	std::map<Declaration const*, std::pair<u256, unsigned>> m_stateVariables;
 	/// Offsets of local variables on the stack (relative to stack base).

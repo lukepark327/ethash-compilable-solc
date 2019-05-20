@@ -22,13 +22,8 @@
 
 #pragma once
 
-#include <libdevcore/CommonData.h>
-
 #include <liblangutil/Exceptions.h>
 #include <liblangutil/SourceLocation.h>
-#include <libdevcore/StringUtils.h>
-
-#include <boost/range/adaptor/filtered.hpp>
 
 namespace langutil
 {
@@ -44,11 +39,6 @@ public:
 		m_errorList(_errorReporter.m_errorList) { }
 
 	ErrorReporter& operator=(ErrorReporter const& _errorReporter);
-
-	void append(ErrorList const& _errorList)
-	{
-		m_errorList += _errorList;
-	}
 
 	void warning(std::string const& _description);
 
@@ -90,21 +80,7 @@ public:
 
 	void typeError(SourceLocation const& _location, std::string const& _description);
 
-	template <typename... Strings>
-	void typeErrorConcatenateDescriptions(SourceLocation const& _location, Strings const&... _descriptions)
-	{
-		std::initializer_list<std::string> const descs = {_descriptions...};
-		solAssert(descs.size() > 0, "Need error descriptions!");
-
-		auto filterEmpty = boost::adaptors::filtered([](std::string const& _s) { return !_s.empty(); });
-
-		std::string errorStr = dev::joinHumanReadable(descs | filterEmpty, " ");
-
-		error(Error::Type::TypeError, _location, errorStr);
-	}
-
 	void fatalTypeError(SourceLocation const& _location, std::string const& _description);
-	void fatalTypeError(SourceLocation const& _location, SecondarySourceLocation const& _secondLocation, std::string const& _description);
 
 	void docstringParsingError(std::string const& _description);
 
@@ -119,20 +95,12 @@ public:
 	}
 
 private:
-	void error(
-		Error::Type _type,
+	void error(Error::Type _type,
 		SourceLocation const& _location,
 		SecondarySourceLocation const& _secondaryLocation,
 		std::string const& _description = std::string());
 
-	void fatalError(
-		Error::Type _type,
-		SourceLocation const& _location,
-		SecondarySourceLocation const& _secondaryLocation,
-		std::string const& _description = std::string());
-
-	void fatalError(
-		Error::Type _type,
+	void fatalError(Error::Type _type,
 		SourceLocation const& _location = SourceLocation(),
 		std::string const& _description = std::string());
 
@@ -144,8 +112,8 @@ private:
 	unsigned m_errorCount = 0;
 	unsigned m_warningCount = 0;
 
-	unsigned const c_maxWarningsAllowed = 256;
-	unsigned const c_maxErrorsAllowed = 256;
+	const unsigned c_maxWarningsAllowed = 256;
+	const unsigned c_maxErrorsAllowed = 256;
 };
 
 }

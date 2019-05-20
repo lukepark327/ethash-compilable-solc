@@ -5,4 +5,3 @@ contract test {
     }
 }
 // ----
-// Warning: (105-113): Unreachable code.

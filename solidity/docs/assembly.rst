@@ -42,8 +42,7 @@ Syntax
 ------
 
 Assembly parses comments, literals and identifiers in the same way as Solidity, so you can use the
-usual ``//`` and ``/* */`` comments. There is one exception: Identifiers in inline assembly can contain
-``.``. Inline assembly is marked by ``assembly { ... }`` and inside
+usual ``//`` and ``/* */`` comments. Inline assembly is marked by ``assembly { ... }`` and inside
 these curly braces, you can use the following (see the later sections for more details):
 
  - literals, i.e. ``0x123``, ``42`` or ``"abc"`` (strings up to 32 characters)
@@ -77,7 +76,7 @@ idea is that assembly libraries will be used to enhance the Solidity language.
 
 .. code::
 
-    pragma solidity >=0.4.0 <0.7.0;
+    pragma solidity >=0.4.0 <0.6.0;
 
     library GetCode {
         function at(address _addr) public view returns (bytes memory o_code) {
@@ -102,7 +101,7 @@ efficient code, for example:
 
 .. code::
 
-    pragma solidity >=0.4.16 <0.7.0;
+    pragma solidity >=0.4.16 <0.6.0;
 
     library VectorSum {
         // This function is less efficient because the optimizer currently fails to
@@ -160,9 +159,10 @@ following list can be used as a reference of its opcodes.
 
 If an opcode takes arguments (always from the top of the stack), they are given in parentheses.
 Note that the order of arguments can be seen to be reversed in non-functional style (explained below).
-Opcodes marked with ``-`` do not push an item onto the stack (do not return a result),
-those marked with ``*`` are special and all others push exactly one item onto the stack (their "return value").
+Opcodes marked with ``-`` do not push an item onto the stack, those marked with ``*`` are
+special and all others push exactly one item onto the stack.
 Opcodes marked with ``F``, ``H``, ``B`` or ``C`` are present since Frontier, Homestead, Byzantium or Constantinople, respectively.
+Constantinople is still in planning and all instructions marked as such will result in an invalid instruction exception.
 
 In the following, ``mem[a...b)`` signifies the bytes of memory starting at position ``a`` up to
 but not including position ``b`` and ``storage[p]`` signifies the storage contents at position ``p``.
@@ -346,7 +346,7 @@ Literals
 
 You can use integer constants by typing them in decimal or hexadecimal notation and an
 appropriate ``PUSHi`` instruction will automatically be generated. The following creates code
-to add 2 and 3 resulting in 5 and then computes the bitwise ``AND`` with the string "abc".
+to add 2 and 3 resulting in 5 and then computes the bitwise and with the string "abc".
 The final value is assigned to a local variable called ``x``.
 Strings are stored left-aligned and cannot be longer than 32 bytes.
 
@@ -395,7 +395,7 @@ Local Solidity variables are available for assignments, for example:
 
 .. code::
 
-    pragma solidity >=0.4.11 <0.7.0;
+    pragma solidity >=0.4.11 <0.6.0;
 
     contract C {
         uint b;
@@ -434,7 +434,7 @@ be just ``0``, but it can also be a complex functional-style expression.
 
 .. code::
 
-    pragma solidity >=0.4.16 <0.7.0;
+    pragma solidity >=0.4.16 <0.6.0;
 
     contract C {
         function f(uint x) public view returns (uint b) {
@@ -691,7 +691,7 @@ Example:
 We will follow an example compilation from Solidity to assembly.
 We consider the runtime bytecode of the following Solidity program::
 
-    pragma solidity >=0.4.16 <0.7.0;
+    pragma solidity >=0.4.16 <0.6.0;
 
     contract C {
       function f(uint x) public pure returns (uint y) {
@@ -766,7 +766,7 @@ Grammar::
         SubAssembly
     AssemblyExpression = AssemblyCall | Identifier | AssemblyLiteral
     AssemblyLiteral = NumberLiteral | StringLiteral | HexLiteral
-    Identifier = [a-zA-Z_$] [a-zA-Z_0-9.]*
+    Identifier = [a-zA-Z_$] [a-zA-Z_0-9]*
     AssemblyCall = Identifier '(' ( AssemblyExpression ( ',' AssemblyExpression )* )? ')'
     AssemblyLocalDefinition = 'let' IdentifierOrList ( ':=' AssemblyExpression )?
     AssemblyAssignment = IdentifierOrList ':=' AssemblyExpression

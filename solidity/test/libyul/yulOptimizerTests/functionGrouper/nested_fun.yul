@@ -1,3 +1,4 @@
+// yul
 {
     let a:u256
     function f() {
@@ -8,10 +9,8 @@
         let d:u256
     }
 }
-// ====
-// step: functionGrouper
-// yul: true
 // ----
+// functionGrouper
 // {
 //     {
 //         let a:u256

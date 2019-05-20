@@ -31,6 +31,7 @@
 
 using namespace std;
 using namespace dev;
+using namespace dev::solidity;
 using namespace dev::lll;
 
 static string const VersionString =
@@ -129,11 +130,11 @@ int main(int argc, char** argv)
 	}
 	else if (mode == Disassemble)
 	{
-		cout << dev::eth::disassemble(fromHex(src)) << endl;
+		cout << disassemble(fromHex(src)) << endl;
 	}
 	else if (mode == Binary || mode == Hex)
 	{
-		auto bs = compileLLL(std::move(src), langutil::EVMVersion{}, optimise ? true : false, &errors, readFileAsString);
+		auto bs = compileLLL(src, EVMVersion{}, optimise ? true : false, &errors, readFileAsString);
 		if (mode == Hex)
 			cout << toHex(bs) << endl;
 		else if (mode == Binary)
@@ -141,11 +142,11 @@ int main(int argc, char** argv)
 	}
 	else if (mode == ParseTree)
 	{
-		cout << parseLLL(std::move(src)) << endl;
+		cout << parseLLL(src) << endl;
 	}
 	else if (mode == Assembly)
 	{
-		cout << compileLLLToAsm(std::move(src), langutil::EVMVersion{}, optimise ? true : false, &errors, readFileAsString) << endl;
+		cout << compileLLLToAsm(src, EVMVersion{}, optimise ? true : false, &errors, readFileAsString) << endl;
 	}
 
 	for (auto const& i: errors)

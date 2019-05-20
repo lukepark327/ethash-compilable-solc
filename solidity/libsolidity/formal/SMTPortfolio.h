@@ -19,10 +19,13 @@
 
 
 #include <libsolidity/formal/SolverInterface.h>
+
 #include <libsolidity/interface/ReadFile.h>
+
 #include <libdevcore/FixedHash.h>
 
 #include <boost/noncopyable.hpp>
+
 #include <map>
 #include <vector>
 
@@ -54,8 +57,7 @@ public:
 	void addAssertion(Expression const& _expr) override;
 	std::pair<CheckResult, std::vector<std::string>> check(std::vector<Expression> const& _expressionsToEvaluate) override;
 
-	std::vector<std::string> unhandledQueries() override;
-	unsigned solvers() override { return m_solvers.size(); }
+	std::vector<std::string> unhandledQueries() override { return m_solvers.at(0)->unhandledQueries(); }
 private:
 	static bool solverAnswered(CheckResult result);
 

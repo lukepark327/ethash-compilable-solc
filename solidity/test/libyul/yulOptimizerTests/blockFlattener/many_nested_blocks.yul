@@ -14,9 +14,8 @@
     a := add(a, c)
   }
 }
-// ====
-// step: blockFlattener
 // ----
+// blockFlattener
 // {
 //     let a := 3
 //     let b := 4

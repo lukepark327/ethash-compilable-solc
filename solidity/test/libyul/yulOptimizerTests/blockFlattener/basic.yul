@@ -8,9 +8,8 @@
   }
   let z := mload(2)
 }
-// ====
-// step: blockFlattener
 // ----
+// blockFlattener
 // {
 //     let _1 := mload(0)
 //     let f_a := mload(1)

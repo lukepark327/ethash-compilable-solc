@@ -22,15 +22,11 @@
 
 #include <test/Options.h>
 
-#include <test/libsolidity/ErrorCheck.h>
-
-#include <libsolidity/ast/AST.h>
-
-#include <libyul/AssemblyStack.h>
-
+#include <libsolidity/interface/AssemblyStack.h>
 #include <liblangutil/Scanner.h>
 #include <liblangutil/Exceptions.h>
-
+#include <libsolidity/ast/AST.h>
+#include <test/libsolidity/ErrorCheck.h>
 #include <libevmasm/Assembly.h>
 
 #include <boost/optional.hpp>
@@ -41,7 +37,6 @@
 
 using namespace std;
 using namespace langutil;
-using namespace yul;
 
 namespace dev
 {
@@ -61,7 +56,7 @@ boost::optional<Error> parseAndReturnFirstError(
 	AssemblyStack::Machine _machine = AssemblyStack::Machine::EVM
 )
 {
-	AssemblyStack stack(dev::test::Options::get().evmVersion(), _language, dev::solidity::OptimiserSettings::none());
+	AssemblyStack stack(dev::test::Options::get().evmVersion(), _language);
 	bool success = false;
 	try
 	{
@@ -123,7 +118,7 @@ Error expectError(
 
 void parsePrintCompare(string const& _source, bool _canWarn = false)
 {
-	AssemblyStack stack(dev::test::Options::get().evmVersion(), AssemblyStack::Language::Assembly, OptimiserSettings::none());
+	AssemblyStack stack(dev::test::Options::get().evmVersion());
 	BOOST_REQUIRE(stack.parseAndAnalyze("", _source));
 	if (_canWarn)
 		BOOST_REQUIRE(Error::containsOnlyWarnings(stack.errors()));
@@ -321,7 +316,7 @@ BOOST_AUTO_TEST_CASE(switch_no_cases)
 
 BOOST_AUTO_TEST_CASE(switch_duplicate_case)
 {
-	CHECK_PARSE_ERROR("{ switch 42 case 1 {} case 1 {} default {} }", DeclarationError, "Duplicate case defined.");
+	CHECK_PARSE_ERROR("{ switch 42 case 1 {} case 1 {} default {} }", DeclarationError, "Duplicate case defined");
 }
 
 BOOST_AUTO_TEST_CASE(switch_invalid_expression)
@@ -428,31 +423,7 @@ BOOST_AUTO_TEST_CASE(opcode_for_function_args)
 
 BOOST_AUTO_TEST_CASE(name_clashes)
 {
-	CHECK_PARSE_ERROR("{ let g := 2 function g() { } }", DeclarationError, "Variable name g already taken in this scope");
-}
-
-BOOST_AUTO_TEST_CASE(name_clashes_function_subscope)
-{
-	CHECK_PARSE_ERROR("{ function g() { function g() {} } }", DeclarationError, "Function name g already taken in this scope");
-}
-
-BOOST_AUTO_TEST_CASE(name_clashes_function_subscope_reverse)
-{
-	CHECK_PARSE_ERROR("{ { function g() {} } function g() { } }", DeclarationError, "Function name g already taken in this scope");
-}
-
-BOOST_AUTO_TEST_CASE(name_clashes_function_variable_subscope)
-{
-	CHECK_PARSE_ERROR("{ function g() { let g := 0 } }", DeclarationError, "Variable name g already taken in this scope");
-}
-
-BOOST_AUTO_TEST_CASE(name_clashes_function_variable_subscope_reverse)
-{
-	CHECK_PARSE_ERROR("{ { let g := 0 } function g() { } }", DeclarationError, "Variable name g already taken in this scope");
-}
-BOOST_AUTO_TEST_CASE(functions_in_parallel_scopes)
-{
-	BOOST_CHECK(successParse("{ { function g() {} } { function g() {} } }"));
+	CHECK_PARSE_ERROR("{ let g := 2 function g() { } }", DeclarationError, "Function name g already taken in this scope");
 }
 
 BOOST_AUTO_TEST_CASE(variable_access_cross_functions)
@@ -462,7 +433,8 @@ BOOST_AUTO_TEST_CASE(variable_access_cross_functions)
 
 BOOST_AUTO_TEST_CASE(invalid_tuple_assignment)
 {
-	CHECK_PARSE_ERROR("{ let x, y := 1 }", DeclarationError, "Variable count mismatch: 2 variables and 1 values");
+	/// The push(42) is added here to silence the unbalanced stack error, so that there's only one error reported.
+	CHECK_PARSE_ERROR("{ 42 let x, y := 1 }", DeclarationError, "Variable count mismatch.");
 }
 
 BOOST_AUTO_TEST_CASE(instruction_too_few_arguments)
@@ -490,8 +462,8 @@ BOOST_AUTO_TEST_CASE(recursion_depth)
 
 BOOST_AUTO_TEST_CASE(multiple_assignment)
 {
-	CHECK_PARSE_ERROR("{ let x function f() -> a, b {} 123, x := f() }", ParserError, "Variable name must precede \",\" in multiple assignment.");
-	CHECK_PARSE_ERROR("{ let x function f() -> a, b {} x, 123 := f() }", ParserError, "Variable name must precede \":=\" in assignment.");
+	CHECK_PARSE_ERROR("{ let x function f() -> a, b {} 123, x := f() }", ParserError, "Label name / variable name must precede \",\" (multiple assignment).");
+	CHECK_PARSE_ERROR("{ let x function f() -> a, b {} x, 123 := f() }", ParserError, "Variable name expected in multiple assignment.");
 
 	/// NOTE: Travis hiccups if not having a variable
 	char const* text = R"(
@@ -597,7 +569,7 @@ BOOST_AUTO_TEST_CASE(print_string_literal_unicode)
 {
 	string source = "{ let x := \"\\u1bac\" }";
 	string parsed = "object \"object\" {\n    code {\n        let x := \"\\xe1\\xae\\xac\"\n    }\n}\n";
-	AssemblyStack stack(dev::test::Options::get().evmVersion(), AssemblyStack::Language::Assembly, OptimiserSettings::none());
+	AssemblyStack stack(dev::test::Options::get().evmVersion());
 	BOOST_REQUIRE(stack.parseAndAnalyze("", source));
 	BOOST_REQUIRE(stack.errors().empty());
 	BOOST_CHECK_EQUAL(stack.print(), parsed);
@@ -706,7 +678,7 @@ BOOST_AUTO_TEST_CASE(inline_assembly_shadowed_instruction_assignment)
 
 BOOST_AUTO_TEST_CASE(inline_assembly_shadowed_instruction_functional_assignment)
 {
-	CHECK_ASSEMBLE_ERROR("{ gas := 2 }", ParserError, "Variable name must precede \":=\"");
+	CHECK_ASSEMBLE_ERROR("{ gas := 2 }", ParserError, "Label name / variable name must precede \":\"");
 }
 
 BOOST_AUTO_TEST_CASE(revert)
@@ -776,50 +748,36 @@ BOOST_AUTO_TEST_CASE(keccak256)
 
 BOOST_AUTO_TEST_CASE(returndatasize)
 {
-	if (!dev::test::Options::get().evmVersion().supportsReturndata())
-		return;
 	BOOST_CHECK(successAssemble("{ let r := returndatasize }"));
 }
 
 BOOST_AUTO_TEST_CASE(returndatasize_functional)
 {
-	if (!dev::test::Options::get().evmVersion().supportsReturndata())
-		return;
 	BOOST_CHECK(successAssemble("{ let r := returndatasize() }"));
 }
 
 BOOST_AUTO_TEST_CASE(returndatacopy)
 {
-	if (!dev::test::Options::get().evmVersion().supportsReturndata())
-		return;
 	BOOST_CHECK(successAssemble("{ 64 32 0 returndatacopy }"));
 }
 
 BOOST_AUTO_TEST_CASE(returndatacopy_functional)
 {
-	if (!dev::test::Options::get().evmVersion().supportsReturndata())
-		return;
 	BOOST_CHECK(successAssemble("{ returndatacopy(0, 32, 64) }"));
 }
 
 BOOST_AUTO_TEST_CASE(staticcall)
 {
-	if (!dev::test::Options::get().evmVersion().hasStaticCall())
-		return;
 	BOOST_CHECK(successAssemble("{ pop(staticcall(10000, 0x123, 64, 0x10, 128, 0x10)) }"));
 }
 
 BOOST_AUTO_TEST_CASE(create2)
 {
-	if (!dev::test::Options::get().evmVersion().hasCreate2())
-		return;
 	BOOST_CHECK(successAssemble("{ pop(create2(10, 0x123, 32, 64)) }"));
 }
 
 BOOST_AUTO_TEST_CASE(shift)
 {
-	if (!dev::test::Options::get().evmVersion().hasBitwiseShifting())
-		return;
 	BOOST_CHECK(successAssemble("{ pop(shl(10, 32)) }"));
 	BOOST_CHECK(successAssemble("{ pop(shr(10, 32)) }"));
 	BOOST_CHECK(successAssemble("{ pop(sar(10, 32)) }"));
@@ -829,9 +787,9 @@ BOOST_AUTO_TEST_CASE(shift_constantinople_warning)
 {
 	if (dev::test::Options::get().evmVersion().hasBitwiseShifting())
 		return;
-	CHECK_PARSE_WARNING("{ pop(shl(10, 32)) }", TypeError, "The \"shl\" instruction is only available for Constantinople-compatible VMs");
-	CHECK_PARSE_WARNING("{ pop(shr(10, 32)) }", TypeError, "The \"shr\" instruction is only available for Constantinople-compatible VMs");
-	CHECK_PARSE_WARNING("{ pop(sar(10, 32)) }", TypeError, "The \"sar\" instruction is only available for Constantinople-compatible VMs");
+	CHECK_PARSE_WARNING("{ pop(shl(10, 32)) }", Warning, "The \"shl\" instruction is only available for Constantinople-compatible VMs.");
+	CHECK_PARSE_WARNING("{ pop(shr(10, 32)) }", Warning, "The \"shr\" instruction is only available for Constantinople-compatible VMs.");
+	CHECK_PARSE_WARNING("{ pop(sar(10, 32)) }", Warning, "The \"sar\" instruction is only available for Constantinople-compatible VMs.");
 }
 
 BOOST_AUTO_TEST_CASE(jump_warning)

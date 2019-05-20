@@ -51,9 +51,7 @@ SimplificationRule<Pattern> const* Rules::findFirstMatch(
 	for (auto const& rule: m_rules[uint8_t(_expr.item->instruction())])
 	{
 		if (rule.pattern.matches(_expr, _classes))
-			if (!rule.feasible || rule.feasible())
-				return &rule;
-
+			return &rule;
 		resetMatchGroups();
 	}
 	return nullptr;
@@ -211,7 +209,7 @@ ExpressionTemplate::ExpressionTemplate(Pattern const& _pattern, SourceLocation c
 		item = _pattern.toAssemblyItem(_location);
 	}
 	for (auto const& arg: _pattern.arguments())
-		arguments.emplace_back(arg, _location);
+		arguments.push_back(ExpressionTemplate(arg, _location));
 }
 
 string ExpressionTemplate::toString() const

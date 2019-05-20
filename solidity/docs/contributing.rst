@@ -61,7 +61,7 @@ New features and bugfixes should be added to the ``Changelog.md`` file: please
 follow the style of previous entries, when applicable.
 
 Finally, please make sure you respect the `coding style
-<https://github.com/ethereum/solidity/blob/develop/CODING_STYLE.md>`_
+<https://raw.githubusercontent.com/ethereum/solidity/develop/CODING_STYLE.md>`_
 for this project. Also, even though we do CI testing, please test your code and
 ensure that it builds locally before submitting a pull request.
 
@@ -71,32 +71,26 @@ Running the compiler tests
 ==========================
 
 The ``./scripts/tests.sh`` script executes most Solidity tests and
-runs ``aleth`` automatically if it is in the path. The script does not download it,
+runs ``aleth`` automatically if it is in the path, but does not download it,
 so you need to install it first. Please read on for the details.
 
-Solidity includes different types of tests, most of them bundled into the `Boost C++ Test Framework <https://www.boost.org/doc/libs/1_69_0/libs/test/doc/html/index.html>`_ application ``soltest``.
-Some of them require the ``aleth`` client in testing mode, others require ``libz3``.
+Solidity includes different types of tests, most of them bundled into the ``soltest``
+application. Some of them require the ``aleth`` client in testing mode, others require ``libz3``.
 
 To run a basic set of tests that require neither ``aleth`` nor ``libz3``, run
-``./scripts/soltest.sh --no-ipc --no-smt``.
-
-``./build/test/soltest --help`` has extensive help on all of the options available.
-See especially:
-
-- `show_progress (-p) <https://www.boost.org/doc/libs/1_69_0/libs/test/doc/html/boost_test/utf_reference/rt_param_reference/show_progress.html>`_ to show test completion,
-- `run_test (-t) <https://www.boost.org/doc/libs/1_69_0/libs/test/doc/html/boost_test/utf_reference/rt_param_reference/run_test.html>`_ to run specific tests cases, and
-- `report-level (-r) <https://www.boost.org/doc/libs/1_69_0/libs/test/doc/html/boost_test/utf_reference/rt_param_reference/report_level.html>`_ give a more detailed report.
+``./scripts/soltest.sh --no-ipc --no-smt``. This script runs ``./build/test/soltest``
+internally.
 
 .. note ::
 
-    Those working in a Windows environment wanting to run the above basic sets without aleth or libz3 in Git Bash, you would have to do: ``./build/test/Release/soltest.exe -- --no-ipc --no-smt``.
-    If you're running this in plain Command Prompt, use ``.\build\test\Release\soltest.exe -- --no-ipc --no-smt``.
+    Those working in a Windows environment wanting to run the above basic sets without aleth or libz3 in Git Bash, you would have to do: ``./build/test/RelWithDebInfo/soltest.exe -- --no-ipc --no-smt``.
+    If you're running this in plain Command Prompt, use ``.\build\test\RelWithDebInfo\soltest.exe -- --no-ipc --no-smt``.
 
 The option ``--no-smt`` disables the tests that require ``libz3`` and
 ``--no-ipc`` disables those that require ``aleth``.
 
 If you want to run the ipc tests (that test the semantics of the generated code),
-you need to install `aleth <https://github.com/ethereum/aleth/releases/download/v1.6.0-rc.1/aleth-1.6.0-rc.1-linux-x86_64.tar.gz>`_ and run it in testing mode: ``aleth --db memorydb --test -d /tmp/testeth``.
+you need to install `aleth <https://github.com/ethereum/cpp-ethereum/releases/download/solidityTester/aleth_2018-06-20_artful>`_ and run it in testing mode: ``aleth --test -d /tmp/testeth`` (make sure to rename it).
 
 To run the actual tests, use: ``./scripts/soltest.sh --ipcpath /tmp/testeth/geth.ipc``.
 
@@ -118,7 +112,7 @@ For example, you could run the following command in your ``build`` folder:
    cmake -DCMAKE_BUILD_TYPE=Debug ..
    make
 
-This will create symbols such that when you debug a test using the ``--debug`` flag, you will have access to functions and variables in which you can break or print with.
+This will create symbols such that when you debug a test using the ``--debug`` flag, you will have acecess to functions and varialbes in which you can break or print with.
 
 
 The script ``./scripts/tests.sh`` also runs commandline tests and compilation tests
@@ -128,9 +122,9 @@ The CI runs additional tests (including ``solc-js`` and testing third party Soli
 
 .. note ::
 
-    Some versions of ``aleth`` can not be used for testing. We suggest using
+    You can not use some versions of ``aleth`` for testing. We suggest using
     the same version that the Solidity continuous integration tests use.
-    Currently the CI uses version ``1.5.0-alpha.7`` of ``aleth``.
+    Currently the CI uses ``d661ac4fec0aeffbedcdc195f67f5ded0c798278`` of ``aleth``.
 
 Writing and running syntax tests
 --------------------------------
@@ -332,93 +326,3 @@ escaping and without iterated replacements. An area can be delimited by ``<#name
 by as many concatenations of its contents as there were sets of variables supplied to the template system,
 each time replacing any ``<inner>`` items by their respective value. Top-level variables can also be used
 inside such areas.
-
-.. _documentation-style:
-
-Documentation Style Guide
-=========================
-
-The following are style recommendations specifically for documentation
-contributions to Solidity.
-
-English Language
-----------------
-
-Use English, with British English spelling preferred, unless using project or brand names. Try to reduce the usage of
-local slang and references, making your language as clear to all readers as possible. Below are some references to help:
-
-* `Simplified technical English <https://en.wikipedia.org/wiki/Simplified_Technical_English>`_
-* `International English <https://en.wikipedia.org/wiki/International_English>`_
-* `British English spelling <https://en.oxforddictionaries.com/spelling/british-and-spelling>`_
-
-
-.. note::
-
-    While the official Solidity documentation is written in English, there are community contributed :ref:`translations`
-    in other languages available.
-
-Title Case for Headings
------------------------
-
-Use `title case <http://titlecase.com>`_ for headings. This means capitalise all principal words in
-titles, but not articles, conjunctions, and prepositions unless they start the
-title.
-
-For example, the following are all correct:
-
-* Title Case for Headings
-* For Headings Use Title Case
-* Local and State Variable Names
-* Order of Layout
-
-Expand Contractions
--------------------
-
-Use expanded contractions for words, for example:
-
-* "Do not" instead of "Don't".
-* "Can not" instead of "Can't".
-
-Active and Passive Voice
-------------------------
-
-Active voice is typically recommended for tutorial style documentation as it
-helps the reader understand who or what is performing a task. However, as the
-Solidity documentation is a mixture of tutorials and reference content, passive
-voice is sometimes more applicable.
-
-As a summary:
-
-* Use passive voice for technical reference, for example language definition and internals of the Ethereum VM.
-* Use active voice when describing recommendations on how to apply an aspect of Solidity.
-
-For example, the below is in passive voice as it specifies an aspect of Solidity:
-
-  Functions can be declared ``pure`` in which case they promise not to read
-  from or modify the state.
-
-For example, the below is in active voice as it discusses an application of Solidity:
-
-  When invoking the compiler, you can specify how to discover the first element
-  of a path, and also path prefix remappings.
-
-Common Terms
-------------
-
-* "Function parameters" and "return variables", not input and output parameters.
-
-Code Examples
--------------
-
-A CI process tests all code block formatted code examples that begin with ``pragma solidity``, ``contract``, ``library``
-or ``interface`` using the ``./test/cmdlineTests.sh`` script when you create a PR. If you are adding new code examples,
-ensure they work and pass tests before creating the PR.
-
-Ensure that all code examples begin with a ``pragma`` version that spans the largest where the contract code is valid.
-For example ``pragma solidity >=0.4.0 <0.7.0;``.
-
-Running Documentation Tests
----------------------------
-
-Make sure your contributions pass our documentation tests by running ``./scripts/docs.sh`` that installs dependencies
-needed for documentation and checks for any problems such as broken links or syntax issues.

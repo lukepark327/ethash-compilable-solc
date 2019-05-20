@@ -6,9 +6,8 @@
     let d := add(b, c)
     pop(a) pop(b) pop(c) pop(d)
 }
-// ====
-// step: rematerialiser
 // ----
+// rematerialiser
 // {
 //     let a := extcodesize(0)
 //     let b := a

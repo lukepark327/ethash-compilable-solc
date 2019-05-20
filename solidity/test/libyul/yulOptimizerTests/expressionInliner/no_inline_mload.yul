@@ -3,9 +3,8 @@
     function f(a) -> x { x := a }
     let y := f(mload(2))
 }
-// ====
-// step: expressionInliner
 // ----
+// expressionInliner
 // {
 //     function f(a) -> x
 //     {

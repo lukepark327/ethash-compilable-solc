@@ -1,11 +1,11 @@
 {
-	"auxiliaryInput":
-	{
-		"smtlib2responses":
-		{
-			"0x47a038dd9021ecb218726ea6bf1f75c215a50b1981bae4341e89c9f2b7ac5db7": "sat\n((|EVALEXPR_0| 1))\n",
-			"0xf057b272f2ceb99a2f714cb132960babdeedfb84ff8ffb96106a58bc0c2060cb": "sat\n((|EVALEXPR_0| 0))\n",
-			"0xf49b9d0eb7b6d2f2ac9e1604288e52ee1a08cda57058e26d7843ed109ca6d7c9": "unsat\n"
-		}
-	}
+  "auxiliaryInput":
+  {
+	  "smtlib2responses":
+	  {
+		  "0x0426cd198d1e7123a28ffac2b759a666b86508ad046babf5166500dd6d8ed308": "unsat\n(error \"line 31 column 26: model is not available\")",
+		  "0xa51ca41ae407f5a727f27101cbc079834743cc8955f9f585582034ca634953f6": "sat\n((|EVALEXPR_0| 1))",
+		  "0xe9477f683ff20aa57fcb08682150f86c5917e1d4c0686b278ab9b73446d0682c": "sat\n((|EVALEXPR_0| 0))"
+	  }
+  }
 }

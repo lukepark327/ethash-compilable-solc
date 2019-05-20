@@ -37,7 +37,7 @@ struct AsmAnalysisInfo;
  */
 struct ObjectNode
 {
-	virtual ~ObjectNode() = default;
+	virtual ~ObjectNode() {}
 	virtual std::string toString(bool _yul) const = 0;
 
 	YulString name;

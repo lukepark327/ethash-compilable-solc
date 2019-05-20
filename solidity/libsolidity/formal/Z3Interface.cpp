@@ -18,6 +18,7 @@
 #include <libsolidity/formal/Z3Interface.h>
 
 #include <liblangutil/Exceptions.h>
+
 #include <libdevcore/CommonIO.h>
 
 using namespace std;
@@ -162,8 +163,6 @@ z3::expr Z3Interface::toZ3Expr(Expression const& _expr)
 		return arguments[0] * arguments[1];
 	else if (n == "/")
 		return arguments[0] / arguments[1];
-	else if (n == "mod")
-		return z3::mod(arguments[0], arguments[1]);
 	else if (n == "select")
 		return z3::select(arguments[0], arguments[1]);
 	else if (n == "store")

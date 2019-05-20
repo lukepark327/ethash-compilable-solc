@@ -72,10 +72,10 @@ ReadCallback::Callback wrapReadCallback(CStyleReadFileCallback _readCallback = n
 	return readCallback;
 }
 
-string compile(string _input, CStyleReadFileCallback _readCallback = nullptr)
+string compile(string const& _input, CStyleReadFileCallback _readCallback = nullptr)
 {
 	StandardCompiler compiler(wrapReadCallback(_readCallback));
-	return compiler.compile(std::move(_input));
+	return compiler.compile(_input);
 }
 
 }
@@ -97,9 +97,5 @@ extern char const* solidity_compile(char const* _input, CStyleReadFileCallback _
 {
 	s_outputBuffer = compile(_input, _readCallback);
 	return s_outputBuffer.c_str();
-}
-extern void solidity_free() noexcept
-{
-	s_outputBuffer.clear();
 }
 }

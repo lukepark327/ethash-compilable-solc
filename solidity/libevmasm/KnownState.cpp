@@ -21,11 +21,10 @@
  * Contains knowledge about the state of the virtual machine at a specific instruction.
  */
 
-#include <libevmasm/KnownState.h>
-#include <libevmasm/AssemblyItem.h>
-#include <libdevcore/Keccak256.h>
-
+#include "KnownState.h"
 #include <functional>
+#include <libdevcore/Keccak256.h>
+#include <libevmasm/AssemblyItem.h>
 
 using namespace std;
 using namespace dev;
@@ -305,7 +304,7 @@ KnownState::StoreOperation KnownState::storeInStorage(
 
 	AssemblyItem item(Instruction::SSTORE, _location);
 	Id id = m_expressionClasses->find(item, {_slot, _value}, true, m_sequenceNumber);
-	StoreOperation operation{StoreOperation::Storage, _slot, m_sequenceNumber, id};
+	StoreOperation operation(StoreOperation::Storage, _slot, m_sequenceNumber, id);
 	m_storageContent[_slot] = _value;
 	// increment a second time so that we get unique sequence numbers for writes
 	m_sequenceNumber++;
@@ -337,7 +336,7 @@ KnownState::StoreOperation KnownState::storeInMemory(Id _slot, Id _value, Source
 
 	AssemblyItem item(Instruction::MSTORE, _location);
 	Id id = m_expressionClasses->find(item, {_slot, _value}, true, m_sequenceNumber);
-	StoreOperation operation{StoreOperation::Memory, _slot, m_sequenceNumber, id};
+	StoreOperation operation(StoreOperation(StoreOperation::Memory, _slot, m_sequenceNumber, id));
 	m_memoryContent[_slot] = _value;
 	// increment a second time so that we get unique sequence numbers for writes
 	m_sequenceNumber++;

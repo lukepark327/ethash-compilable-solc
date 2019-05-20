@@ -6,4 +6,4 @@ contract C {
     }
 }
 // ----
-// TypeError: (116-117): Type not supported in packed mode.
+// TypeError: (116-117): This type cannot be encoded.

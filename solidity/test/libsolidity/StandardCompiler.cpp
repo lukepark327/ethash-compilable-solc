@@ -23,7 +23,8 @@
 #include <boost/test/unit_test.hpp>
 #include <libsolidity/interface/StandardCompiler.h>
 #include <libdevcore/JSON.h>
-#include <test/Metadata.h>
+
+#include "../Metadata.h"
 
 using namespace std;
 using namespace dev::eth;
@@ -83,10 +84,10 @@ Json::Value getContractResult(Json::Value const& _compilerResult, string const& 
 	return _compilerResult["contracts"][_file][_name];
 }
 
-Json::Value compile(string _input)
+Json::Value compile(string const& _input)
 {
 	StandardCompiler compiler;
-	string output = compiler.compile(std::move(_input));
+	string output = compiler.compile(_input);
 	Json::Value ret;
 	BOOST_REQUIRE(jsonParseStrict(output, ret));
 	return ret;
@@ -124,12 +125,11 @@ BOOST_AUTO_TEST_CASE(invalid_language)
 {
 	char const* input = R"(
 	{
-		"language": "INVALID",
-		"sources": { "name": { "content": "abc" } }
+		"language": "INVALID"
 	}
 	)";
 	Json::Value result = compile(input);
-	BOOST_CHECK(containsError(result, "JSONError", "Only \"Solidity\" or \"Yul\" is supported as a language."));
+	BOOST_CHECK(containsError(result, "JSONError", "Only \"Solidity\" is supported as a language."));
 }
 
 BOOST_AUTO_TEST_CASE(valid_language)
@@ -140,7 +140,7 @@ BOOST_AUTO_TEST_CASE(valid_language)
 	}
 	)";
 	Json::Value result = compile(input);
-	BOOST_CHECK(!containsError(result, "JSONError", "Only \"Solidity\" or \"Yul\" is supported as a language."));
+	BOOST_CHECK(!containsError(result, "JSONError", "Only \"Solidity\" is supported as a language."));
 }
 
 BOOST_AUTO_TEST_CASE(no_sources)
@@ -243,7 +243,7 @@ BOOST_AUTO_TEST_CASE(optimizer_enabled_not_boolean)
 	}
 	)";
 	Json::Value result = compile(input);
-	BOOST_CHECK(containsError(result, "JSONError", "The \"enabled\" setting must be a Boolean."));
+	BOOST_CHECK(containsError(result, "JSONError", "The \"enabled\" setting must be a boolean."));
 }
 
 BOOST_AUTO_TEST_CASE(optimizer_runs_not_a_number)
@@ -333,11 +333,11 @@ BOOST_AUTO_TEST_CASE(basic_compilation)
 		"    /* \"fileA\":0:14  contract A { } */\n  mstore(0x40, 0x80)\n  "
 		"callvalue\n    /* \"--CODEGEN--\":8:17   */\n  dup1\n    "
 		"/* \"--CODEGEN--\":5:7   */\n  iszero\n  tag_1\n  jumpi\n    "
-		"/* \"--CODEGEN--\":30:31   */\n  0x00\n    /* \"--CODEGEN--\":27:28   */\n  "
+		"/* \"--CODEGEN--\":30:31   */\n  0x0\n    /* \"--CODEGEN--\":27:28   */\n  "
 		"dup1\n    /* \"--CODEGEN--\":20:32   */\n  revert\n    /* \"--CODEGEN--\":5:7   */\n"
 		"tag_1:\n    /* \"fileA\":0:14  contract A { } */\n  pop\n  dataSize(sub_0)\n  dup1\n  "
-		"dataOffset(sub_0)\n  0x00\n  codecopy\n  0x00\n  return\nstop\n\nsub_0: assembly {\n        "
-		"/* \"fileA\":0:14  contract A { } */\n      mstore(0x40, 0x80)\n      0x00\n      "
+		"dataOffset(sub_0)\n  0x0\n  codecopy\n  0x0\n  return\nstop\n\nsub_0: assembly {\n        "
+		"/* \"fileA\":0:14  contract A { } */\n      mstore(0x40, 0x80)\n      0x0\n      "
 		"dup1\n      revert\n\n    auxdata: 0xa165627a7a72305820"
 	) == 0);
 	BOOST_CHECK(contract["evm"]["gasEstimates"].isObject());
@@ -852,309 +852,14 @@ BOOST_AUTO_TEST_CASE(evm_version)
 	BOOST_CHECK(result["contracts"]["fileA"]["A"]["metadata"].asString().find("\"evmVersion\":\"byzantium\"") != string::npos);
 	result = compile(inputForVersion("\"evmVersion\": \"constantinople\","));
 	BOOST_CHECK(result["contracts"]["fileA"]["A"]["metadata"].asString().find("\"evmVersion\":\"constantinople\"") != string::npos);
-	result = compile(inputForVersion("\"evmVersion\": \"petersburg\","));
-	BOOST_CHECK(result["contracts"]["fileA"]["A"]["metadata"].asString().find("\"evmVersion\":\"petersburg\"") != string::npos);
 	// test default
 	result = compile(inputForVersion(""));
-	BOOST_CHECK(result["contracts"]["fileA"]["A"]["metadata"].asString().find("\"evmVersion\":\"petersburg\"") != string::npos);
+	BOOST_CHECK(result["contracts"]["fileA"]["A"]["metadata"].asString().find("\"evmVersion\":\"byzantium\"") != string::npos);
 	// test invalid
 	result = compile(inputForVersion("\"evmVersion\": \"invalid\","));
 	BOOST_CHECK(result["errors"][0]["message"].asString() == "Invalid EVM version requested.");
 }
 
-BOOST_AUTO_TEST_CASE(optimizer_settings_default_disabled)
-{
-	char const* input = R"(
-	{
-		"language": "Solidity",
-		"settings": {
-			"outputSelection": {
-				"fileA": { "A": [ "metadata" ] }
-			}
-		},
-		"sources": {
-			"fileA": {
-				"content": "contract A { }"
-			}
-		}
-	}
-	)";
-	Json::Value result = compile(input);
-	BOOST_CHECK(containsAtMostWarnings(result));
-	Json::Value contract = getContractResult(result, "fileA", "A");
-	BOOST_CHECK(contract.isObject());
-	BOOST_CHECK(contract["metadata"].isString());
-	Json::Value metadata;
-	BOOST_CHECK(jsonParseStrict(contract["metadata"].asString(), metadata));
-
-	Json::Value const& optimizer = metadata["settings"]["optimizer"];
-	BOOST_CHECK(optimizer.isMember("enabled"));
-	BOOST_CHECK(optimizer["enabled"].asBool() == false);
-	BOOST_CHECK(!optimizer.isMember("details"));
-	BOOST_CHECK(optimizer["runs"].asUInt() == 200);
-}
-
-BOOST_AUTO_TEST_CASE(optimizer_settings_default_enabled)
-{
-	char const* input = R"(
-	{
-		"language": "Solidity",
-		"settings": {
-			"outputSelection": {
-				"fileA": { "A": [ "metadata" ] }
-			},
-			"optimizer": { "enabled": true }
-		},
-		"sources": {
-			"fileA": {
-				"content": "contract A { }"
-			}
-		}
-	}
-	)";
-	Json::Value result = compile(input);
-	BOOST_CHECK(containsAtMostWarnings(result));
-	Json::Value contract = getContractResult(result, "fileA", "A");
-	BOOST_CHECK(contract.isObject());
-	BOOST_CHECK(contract["metadata"].isString());
-	Json::Value metadata;
-	BOOST_CHECK(jsonParseStrict(contract["metadata"].asString(), metadata));
-
-	Json::Value const& optimizer = metadata["settings"]["optimizer"];
-	BOOST_CHECK(optimizer.isMember("enabled"));
-	BOOST_CHECK(optimizer["enabled"].asBool() == true);
-	BOOST_CHECK(!optimizer.isMember("details"));
-	BOOST_CHECK(optimizer["runs"].asUInt() == 200);
-}
-
-BOOST_AUTO_TEST_CASE(optimizer_settings_details_exactly_as_default_disabled)
-{
-	char const* input = R"(
-	{
-		"language": "Solidity",
-		"settings": {
-			"outputSelection": {
-				"fileA": { "A": [ "metadata" ] }
-			},
-			"optimizer": { "details": {
-				"constantOptimizer" : false,
-				"cse" : false,
-				"deduplicate" : false,
-				"jumpdestRemover" : true,
-				"orderLiterals" : false,
-				"peephole" : true
-			} }
-		},
-		"sources": {
-			"fileA": {
-				"content": "contract A { }"
-			}
-		}
-	}
-	)";
-	Json::Value result = compile(input);
-	BOOST_CHECK(containsAtMostWarnings(result));
-	Json::Value contract = getContractResult(result, "fileA", "A");
-	BOOST_CHECK(contract.isObject());
-	BOOST_CHECK(contract["metadata"].isString());
-	Json::Value metadata;
-	BOOST_CHECK(jsonParseStrict(contract["metadata"].asString(), metadata));
-
-	Json::Value const& optimizer = metadata["settings"]["optimizer"];
-	BOOST_CHECK(optimizer.isMember("enabled"));
-	// enabled is switched to false instead!
-	BOOST_CHECK(optimizer["enabled"].asBool() == false);
-	BOOST_CHECK(!optimizer.isMember("details"));
-	BOOST_CHECK(optimizer["runs"].asUInt() == 200);
-}
-
-BOOST_AUTO_TEST_CASE(optimizer_settings_details_different)
-{
-	char const* input = R"(
-	{
-		"language": "Solidity",
-		"settings": {
-			"outputSelection": {
-				"fileA": { "A": [ "metadata" ] }
-			},
-			"optimizer": { "runs": 600, "details": {
-				"constantOptimizer" : true,
-				"cse" : false,
-				"deduplicate" : true,
-				"jumpdestRemover" : true,
-				"orderLiterals" : false,
-				"peephole" : true,
-				"yul": true
-			} }
-		},
-		"sources": {
-			"fileA": {
-				"content": "contract A { }"
-			}
-		}
-	}
-	)";
-	Json::Value result = compile(input);
-	BOOST_CHECK(containsAtMostWarnings(result));
-	BOOST_CHECK(containsError(
-		result,
-		"Warning",
-		"The Yul optimiser is still experimental. "
-		"Do not use it in production unless correctness of generated code is verified with extensive tests."
-	));
-	Json::Value contract = getContractResult(result, "fileA", "A");
-	BOOST_CHECK(contract.isObject());
-	BOOST_CHECK(contract["metadata"].isString());
-	Json::Value metadata;
-	BOOST_CHECK(jsonParseStrict(contract["metadata"].asString(), metadata));
-
-	Json::Value const& optimizer = metadata["settings"]["optimizer"];
-	BOOST_CHECK(!optimizer.isMember("enabled"));
-	BOOST_CHECK(optimizer.isMember("details"));
-	BOOST_CHECK(optimizer["details"]["constantOptimizer"].asBool() == true);
-	BOOST_CHECK(optimizer["details"]["cse"].asBool() == false);
-	BOOST_CHECK(optimizer["details"]["deduplicate"].asBool() == true);
-	BOOST_CHECK(optimizer["details"]["jumpdestRemover"].asBool() == true);
-	BOOST_CHECK(optimizer["details"]["orderLiterals"].asBool() == false);
-	BOOST_CHECK(optimizer["details"]["peephole"].asBool() == true);
-	BOOST_CHECK(optimizer["details"]["yul"].asBool() == true);
-	BOOST_CHECK(optimizer["details"]["yulDetails"].isObject());
-	BOOST_CHECK(optimizer["details"]["yulDetails"].getMemberNames() == vector<string>{"stackAllocation"});
-	BOOST_CHECK(optimizer["details"]["yulDetails"]["stackAllocation"].asBool() == true);
-	BOOST_CHECK_EQUAL(optimizer["details"].getMemberNames().size(), 8);
-	BOOST_CHECK(optimizer["runs"].asUInt() == 600);
-}
-
-BOOST_AUTO_TEST_CASE(metadata_without_compilation)
-{
-	// NOTE: the contract code here should fail to compile due to "out of stack"
-	// If the metadata is successfully returned, that means no compilation was attempted.
-	char const* input = R"(
-	{
-		"language": "Solidity",
-		"settings": {
-			"outputSelection": {
-				"fileA": { "A": [ "metadata" ] }
-			}
-		},
-		"sources": {
-			"fileA": {
-				"content": "contract A {
-  function x(uint a, uint b, uint c, uint d, uint e, uint f, uint g, uint h, uint i, uint j, uint k, uint l, uint m, uint n, uint o, uint p) pure public {}
-  function y() pure public {
-    uint a; uint b; uint c; uint d; uint e; uint f; uint g; uint h; uint i; uint j; uint k; uint l; uint m; uint n; uint o; uint p;
-    x(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p);
-  }
-}"
-			}
-		}
-	}
-	)";
-	Json::Value result = compile(input);
-	BOOST_CHECK(containsAtMostWarnings(result));
-	Json::Value contract = getContractResult(result, "fileA", "A");
-	BOOST_CHECK(contract.isObject());
-	BOOST_CHECK(contract["metadata"].isString());
-	BOOST_CHECK(dev::test::isValidMetadata(contract["metadata"].asString()));
-}
-
-BOOST_AUTO_TEST_CASE(common_pattern)
-{
-	char const* input = R"(
-	{
-		"language": "Solidity",
-		"settings": {
-			"outputSelection": {
-				"*": {
-					"*": [ "evm.bytecode.object", "metadata" ]
-				}
-			}
-		},
-		"sources": {
-			"fileA": {
-				"content": "contract A { function f() pure public {} }"
-			}
-		}
-	}
-	)";
-	Json::Value result = compile(input);
-	BOOST_CHECK(containsAtMostWarnings(result));
-	Json::Value contract = getContractResult(result, "fileA", "A");
-	BOOST_CHECK(contract.isObject());
-	BOOST_CHECK(contract["metadata"].isString());
-	BOOST_CHECK(dev::test::isValidMetadata(contract["metadata"].asString()));
-	BOOST_CHECK(contract["evm"]["bytecode"].isObject());
-	BOOST_CHECK(contract["evm"]["bytecode"]["object"].isString());
-}
-
-BOOST_AUTO_TEST_CASE(use_stack_optimization)
-{
-	// NOTE: the contract code here should fail to compile due to "out of stack"
-	// If we enable stack optimization, though, it will compile.
-	char const* input = R"(
-	{
-		"language": "Solidity",
-		"settings": {
-			"optimizer": { "enabled": true, "details": { "yul": true } },
-			"outputSelection": {
-				"fileA": { "A": [ "evm.bytecode.object" ] }
-			}
-		},
-		"sources": {
-			"fileA": {
-				"content": "contract A {
-					function y() public {
-						assembly {
-							function fun() -> a3, b3, c3, d3, e3, f3, g3, h3, i3, j3, k3, l3, m3, n3, o3, p3
-							{
-								let a := 1
-								let b := 1
-								let z3 := 1
-								sstore(a, b)
-								sstore(add(a, 1), b)
-								sstore(add(a, 2), b)
-								sstore(add(a, 3), b)
-								sstore(add(a, 4), b)
-								sstore(add(a, 5), b)
-								sstore(add(a, 6), b)
-								sstore(add(a, 7), b)
-								sstore(add(a, 8), b)
-								sstore(add(a, 9), b)
-								sstore(add(a, 10), b)
-								sstore(add(a, 11), b)
-								sstore(add(a, 12), b)
-							}
-							let a1, b1, c1, d1, e1, f1, g1, h1, i1, j1, k1, l1, m1, n1, o1, p1 := fun()
-							let a2, b2, c2, d2, e2, f2, g2, h2, i2, j2, k2, l2, m2, n2, o2, p2 := fun()
-							sstore(a1, a2)
-						}
-					}
-				}"
-			}
-		}
-	}
-	)";
-
-	Json::Value parsedInput;
-	BOOST_REQUIRE(jsonParseStrict(input, parsedInput));
-
-	dev::solidity::StandardCompiler compiler;
-	Json::Value result = compiler.compile(parsedInput);
-
-	BOOST_CHECK(containsAtMostWarnings(result));
-	Json::Value contract = getContractResult(result, "fileA", "A");
-	BOOST_REQUIRE(contract.isObject());
-	BOOST_REQUIRE(contract["evm"]["bytecode"]["object"].isString());
-	BOOST_CHECK(contract["evm"]["bytecode"]["object"].asString().length() > 20);
-
-	// Now disable stack optimizations
-	// results in "stack too deep"
-	parsedInput["settings"]["optimizer"]["details"]["yulDetails"]["stackAllocation"] = false;
-	result = compiler.compile(parsedInput);
-	BOOST_REQUIRE(result["errors"].isArray());
-	BOOST_CHECK(result["errors"][0]["severity"] == "error");
-	BOOST_CHECK(result["errors"][0]["type"] == "InternalCompilerError");
-}
 
 BOOST_AUTO_TEST_SUITE_END()
 

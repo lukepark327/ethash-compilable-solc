@@ -24,11 +24,11 @@
 #include <memory>
 #include <stdexcept>
 
-using namespace langutil;
-using namespace dev::solidity;
-using namespace dev::solidity::test;
-using namespace dev::formatting;
 using namespace dev;
+using namespace langutil;
+using namespace solidity;
+using namespace dev::solidity::test;
+using namespace dev::solidity::test::formatting;
 using namespace std;
 namespace fs = boost::filesystem;
 using namespace boost::unit_test;
@@ -52,28 +52,28 @@ int parseUnsignedInteger(string::iterator& _it, string::iterator _end)
 
 }
 
-SyntaxTest::SyntaxTest(string const& _filename, langutil::EVMVersion _evmVersion): m_evmVersion(_evmVersion)
+SyntaxTest::SyntaxTest(string const& _filename)
 {
 	ifstream file(_filename);
 	if (!file)
 		BOOST_THROW_EXCEPTION(runtime_error("Cannot open test contract: \"" + _filename + "\"."));
 	file.exceptions(ios::badbit);
 
-	m_source = parseSourceAndSettings(file);
+	m_source = parseSource(file);
 	m_expectations = parseExpectations(file);
 }
 
-bool SyntaxTest::run(ostream& _stream, string const& _linePrefix, bool _formatted)
+bool SyntaxTest::run(ostream& _stream, string const& _linePrefix, bool const _formatted)
 {
 	string const versionPragma = "pragma solidity >=0.0;\n";
-	compiler().reset();
-	compiler().setSources({{"", versionPragma + m_source}});
-	compiler().setEVMVersion(m_evmVersion);
+	m_compiler.reset();
+	m_compiler.addSource("", versionPragma + m_source);
+	m_compiler.setEVMVersion(dev::test::Options::get().evmVersion());
 
-	if (compiler().parse())
-		compiler().analyze();
+	if (m_compiler.parse())
+		m_compiler.analyze();
 
-	for (auto const& currentError: filterErrors(compiler().errors(), true))
+	for (auto const& currentError: filterErrors(m_compiler.errors(), true))
 	{
 		int locationStart = -1, locationEnd = -1;
 		if (auto location = boost::get_error_info<errinfo_sourceLocation>(*currentError))
@@ -95,21 +95,21 @@ bool SyntaxTest::run(ostream& _stream, string const& _linePrefix, bool _formatte
 	return printExpectationAndError(_stream, _linePrefix, _formatted);
 }
 
-bool SyntaxTest::printExpectationAndError(ostream& _stream, string const& _linePrefix, bool _formatted)
+bool SyntaxTest::printExpectationAndError(ostream& _stream, string const& _linePrefix, bool const _formatted)
 {
 	if (m_expectations != m_errorList)
 	{
 		string nextIndentLevel = _linePrefix + "  ";
-		AnsiColorized(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Expected result:" << endl;
+		FormattedScope(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Expected result:" << endl;
 		printErrorList(_stream, m_expectations, nextIndentLevel, _formatted);
-		AnsiColorized(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Obtained result:" << endl;
+		FormattedScope(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Obtained result:" << endl;
 		printErrorList(_stream, m_errorList, nextIndentLevel, _formatted);
 		return false;
 	}
 	return true;
 }
 
-void SyntaxTest::printSource(ostream& _stream, string const& _linePrefix, bool _formatted) const
+void SyntaxTest::printSource(ostream& _stream, string const& _linePrefix, bool const _formatted) const
 {
 	if (_formatted)
 	{
@@ -127,7 +127,7 @@ void SyntaxTest::printSource(ostream& _stream, string const& _linePrefix, bool _
 					if (isWarning)
 					{
 						if (sourceFormatting[i] == formatting::RESET)
-							sourceFormatting[i] = formatting::ORANGE_BACKGROUND_256;
+							sourceFormatting[i] = formatting::ORANGE_BACKGROUND;
 					}
 					else
 						sourceFormatting[i] = formatting::RED_BACKGROUND;
@@ -162,16 +162,16 @@ void SyntaxTest::printErrorList(
 	ostream& _stream,
 	vector<SyntaxTestError> const& _errorList,
 	string const& _linePrefix,
-	bool _formatted
+	bool const _formatted
 )
 {
 	if (_errorList.empty())
-		AnsiColorized(_stream, _formatted, {BOLD, GREEN}) << _linePrefix << "Success" << endl;
+		FormattedScope(_stream, _formatted, {BOLD, GREEN}) << _linePrefix << "Success" << endl;
 	else
 		for (auto const& error: _errorList)
 		{
 			{
-				AnsiColorized scope(_stream, _formatted, {BOLD, (error.type == "Warning") ? YELLOW : RED});
+				FormattedScope scope(_stream, _formatted, {BOLD, (error.type == "Warning") ? YELLOW : RED});
 				_stream << _linePrefix;
 				_stream << error.type << ": ";
 			}

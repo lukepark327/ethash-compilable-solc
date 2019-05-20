@@ -4,9 +4,8 @@
     let c := a
     mstore(add(a, b), c)
 }
-// ====
-// step: rematerialiser
 // ----
+// rematerialiser
 // {
 //     let a := 1
 //     let b := mload(1)

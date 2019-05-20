@@ -10,7 +10,7 @@ tag_and_push()
     docker push "$image:$2"
 }
 
-echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
 version=$($(dirname "$0")/get_version.sh)
 if [ "$TRAVIS_BRANCH" = "develop" ]
 then

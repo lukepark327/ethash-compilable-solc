@@ -29,13 +29,11 @@ using namespace dev::eth;
 unsigned ConstantOptimisationMethod::optimiseConstants(
 	bool _isCreation,
 	size_t _runs,
-	langutil::EVMVersion _evmVersion,
-	Assembly& _assembly
+	solidity::EVMVersion _evmVersion,
+	Assembly& _assembly,
+	AssemblyItems& _items
 )
 {
-	// TODO: design the optimiser in a way this is not needed
-	AssemblyItems& _items = _assembly.items();
-
 	unsigned optimisations = 0;
 	map<AssemblyItem, size_t> pushes;
 	for (AssemblyItem const& item: _items)
@@ -131,9 +129,14 @@ bigint LiteralMethod::gasNeeded() const
 	return combineGas(
 		simpleRunGas({Instruction::PUSH1}),
 		// PUSHX plus data
-		(m_params.isCreation ? GasCosts::txDataNonZeroGas : GasCosts::createDataGas) + dataGas(toCompactBigEndian(m_value, 1)),
+		(m_params.isCreation ? GasCosts::txDataNonZeroGas : GasCosts::createDataGas) + dataGas(),
 		0
 	);
+}
+
+CodeCopyMethod::CodeCopyMethod(Params const& _params, u256 const& _value):
+	ConstantOptimisationMethod(_params, _value)
+{
 }
 
 bigint CodeCopyMethod::gasNeeded() const
@@ -210,10 +213,7 @@ AssemblyItems ComputeMethod::findRepresentation(u256 const& _value)
 			AssemblyItems newRoutine;
 			if (lowerPart != 0)
 				newRoutine += findRepresentation(u256(abs(lowerPart)));
-			if (m_params.evmVersion.hasBitwiseShifting())
-				newRoutine += AssemblyItems{u256(1), u256(bits), Instruction::SHL};
-			else
-				newRoutine += AssemblyItems{u256(bits), u256(2), Instruction::EXP};
+			newRoutine += AssemblyItems{u256(bits), u256(2), Instruction::EXP};
 			if (upperPart != 1)
 				newRoutine += findRepresentation(upperPart) + AssemblyItems{Instruction::MUL};
 			if (lowerPart > 0)
@@ -234,7 +234,7 @@ AssemblyItems ComputeMethod::findRepresentation(u256 const& _value)
 	}
 }
 
-bool ComputeMethod::checkRepresentation(u256 const& _value, AssemblyItems const& _routine) const
+bool ComputeMethod::checkRepresentation(u256 const& _value, AssemblyItems const& _routine)
 {
 	// This is a tiny EVM that can only evaluate some instructions.
 	vector<u256> stack;
@@ -265,24 +265,6 @@ bool ComputeMethod::checkRepresentation(u256 const& _value, AssemblyItems const&
 				break;
 			case Instruction::NOT:
 				sp[0] = ~sp[0];
-				break;
-			case Instruction::SHL:
-				assertThrow(
-					m_params.evmVersion.hasBitwiseShifting(),
-					OptimizerException,
-					"Shift generated for invalid EVM version."
-				);
-				assertThrow(sp[0] <= u256(255), OptimizerException, "Invalid shift generated.");
-				sp[-1] = u256(bigint(sp[-1]) << unsigned(sp[0]));
-				break;
-			case Instruction::SHR:
-				assertThrow(
-					m_params.evmVersion.hasBitwiseShifting(),
-					OptimizerException,
-					"Shift generated for invalid EVM version."
-				);
-				assertThrow(sp[0] <= u256(255), OptimizerException, "Invalid shift generated.");
-				sp[-1] = sp[-1] >> unsigned(sp[0]);
 				break;
 			default:
 				return false;

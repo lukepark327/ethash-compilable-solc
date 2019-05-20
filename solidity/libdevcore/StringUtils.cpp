@@ -21,7 +21,7 @@
  * String routines
  */
 
-#include <libdevcore/StringUtils.h>
+#include "StringUtils.h"
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -91,7 +91,7 @@ string dev::quotedAlternativesList(vector<string> const& suggestions)
 	vector<string> quotedSuggestions;
 
 	for (auto& suggestion: suggestions)
-		quotedSuggestions.emplace_back("\"" + suggestion + "\"");
+		quotedSuggestions.push_back("\"" + suggestion + "\"");
 
 	return joinHumanReadable(quotedSuggestions, ", ", " or ");
 }

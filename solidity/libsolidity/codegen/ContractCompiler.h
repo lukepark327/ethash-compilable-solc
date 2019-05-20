@@ -22,16 +22,14 @@
 
 #pragma once
 
+#include <ostream>
+#include <functional>
 #include <libsolidity/ast/ASTVisitor.h>
 #include <libsolidity/codegen/CompilerContext.h>
 #include <libevmasm/Assembly.h>
-#include <functional>
-#include <ostream>
 
-namespace dev
-{
-namespace solidity
-{
+namespace dev {
+namespace solidity {
 
 /**
  * Code generator at the contract level. Can be used to generate code for exactly one contract
@@ -40,26 +38,23 @@ namespace solidity
 class ContractCompiler: private ASTConstVisitor
 {
 public:
-	explicit ContractCompiler(
-		ContractCompiler* _runtimeCompiler,
-		CompilerContext& _context,
-		OptimiserSettings _optimiserSettings
-	):
-		m_optimiserSettings(std::move(_optimiserSettings)),
+	explicit ContractCompiler(ContractCompiler* _runtimeCompiler, CompilerContext& _context, bool _optimise):
+		m_optimise(_optimise),
 		m_runtimeCompiler(_runtimeCompiler),
 		m_context(_context)
 	{
+		m_context = CompilerContext(_context.evmVersion(), _runtimeCompiler ? &_runtimeCompiler->m_context : nullptr);
 	}
 
 	void compileContract(
 		ContractDefinition const& _contract,
-		std::map<ContractDefinition const*, std::shared_ptr<Compiler const>> const& _otherCompilers
+		std::map<ContractDefinition const*, eth::Assembly const*> const& _contracts
 	);
 	/// Compiles the constructor part of the contract.
 	/// @returns the identifier of the runtime sub-assembly.
 	size_t compileConstructor(
 		ContractDefinition const& _contract,
-		std::map<ContractDefinition const*, std::shared_ptr<Compiler const>> const& _otherCompilers
+		std::map<ContractDefinition const*, eth::Assembly const*> const& _contracts
 	);
 
 private:
@@ -67,7 +62,7 @@ private:
 	/// information about the contract like the AST annotations.
 	void initializeContext(
 		ContractDefinition const& _contract,
-		std::map<ContractDefinition const*, std::shared_ptr<Compiler const>> const& _otherCompilers
+		std::map<ContractDefinition const*, eth::Assembly const*> const& _compiledContracts
 	);
 	/// Adds the code that is run at creation time. Should be run after exchanging the run-time context
 	/// with a new and initialized context. Adds the constructor code.
@@ -86,14 +81,6 @@ private:
 	/// This is done by inserting a specific push constant as the first instruction
 	/// whose data will be modified in memory at deploy time.
 	void appendDelegatecallCheck();
-	/// Appends the function selector. Is called recursively to create a binary search tree.
-	/// @a _runs the number of intended executions of the contract to tune the split point.
-	void appendInternalSelector(
-		std::map<FixedHash<4>, eth::AssemblyItem const> const& _entryPoints,
-		std::vector<FixedHash<4>> const& _ids,
-		eth::AssemblyItem const& _notFoundTag,
-		size_t _runs
-	);
 	void appendFunctionSelector(ContractDefinition const& _contract);
 	void appendCallValueCheck();
 	void appendReturnValuePacker(TypePointers const& _typeParameters, bool _isLibrary);
@@ -134,7 +121,7 @@ private:
 	/// Sets the stack height for the visited loop.
 	void storeStackHeight(ASTNode const* _node);
 
-	OptimiserSettings const m_optimiserSettings;
+	bool const m_optimise;
 	/// Pointer to the runtime compiler in case this is a creation compiler.
 	ContractCompiler* m_runtimeCompiler = nullptr;
 	CompilerContext& m_context;

@@ -7,16 +7,15 @@
 	mstore(0, verylongfunctionname(verylongvariablename2))
 	mstore(1, verylongvariablename2)
 }
-// ====
-// step: fullInliner
 // ----
+// fullInliner
 // {
 //     {
 //         let verylongvariablename2_1 := 3
-//         let verylongvariablename_4 := verylongvariablename2_1
-//         let verylongvariablename2_5 := 0
-//         verylongvariablename2_5 := add(verylongvariablename_4, verylongvariablename_4)
-//         mstore(0, verylongvariablename2_5)
+//         let verylongfu_verylongvariablename := verylongvariablename2_1
+//         let verylongfu_verylongvariablename2
+//         verylongfu_verylongvariablename2 := add(verylongfu_verylongvariablename, verylongfu_verylongvariablename)
+//         mstore(0, verylongfu_verylongvariablename2)
 //         mstore(1, verylongvariablename2_1)
 //     }
 //     function verylongfunctionname(verylongvariablename) -> verylongvariablename2

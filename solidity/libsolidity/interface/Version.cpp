@@ -21,12 +21,11 @@
  */
 
 #include <libsolidity/interface/Version.h>
-
-#include <liblangutil/Exceptions.h>
+#include <string>
 #include <libdevcore/CommonData.h>
 #include <libdevcore/Common.h>
+#include <liblangutil/Exceptions.h>
 #include <solidity/BuildInfo.h>
-#include <string>
 
 using namespace dev;
 using namespace dev::solidity;

@@ -9,9 +9,8 @@
     // This enforces that none of the assignments above can be removed.
     mstore(0, d)
 }
-// ====
-// step: redundantAssignEliminator
 // ----
+// redundantAssignEliminator
 // {
 //     let c
 //     let d

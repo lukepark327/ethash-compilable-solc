@@ -34,6 +34,8 @@ DEV_SIMPLE_EXCEPTION(IndentedWriterError);
 class IndentedWriter
 {
 public:
+	explicit IndentedWriter(): m_lines(std::vector<Line>{{std::string(), 0}}) {}
+
 	// Returns the formatted output.
 	std::string format() const;
 
@@ -59,7 +61,7 @@ private:
 		unsigned indentation;
 	};
 
-	std::vector<Line> m_lines{{std::string(), 0}};
+	std::vector<Line> m_lines;
 };
 
 }

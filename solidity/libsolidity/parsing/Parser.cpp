@@ -1,18 +1,18 @@
 /*
-	This file is part of solidity.
+    This file is part of solidity.
 
-	solidity is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+    solidity is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-	solidity is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    solidity is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-	You should have received a copy of the GNU General Public License
-	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU General Public License
+    along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 /**
  * @author Christian <c@ethdev.com>
@@ -20,17 +20,13 @@
  * Solidity parser.
  */
 
-#include <libsolidity/parsing/Parser.h>
-
-#include <libsolidity/interface/Version.h>
-#include <libyul/AsmParser.h>
-#include <libyul/backends/evm/EVMDialect.h>
-#include <liblangutil/ErrorReporter.h>
-#include <liblangutil/Scanner.h>
-#include <liblangutil/SemVerHandler.h>
-#include <liblangutil/SourceLocation.h>
 #include <cctype>
 #include <vector>
+#include <libsolidity/parsing/Parser.h>
+#include <libyul/AsmParser.h>
+#include <liblangutil/SourceLocation.h>
+#include <liblangutil/ErrorReporter.h>
+#include <liblangutil/Scanner.h>
 
 using namespace std;
 using namespace langutil;
@@ -46,9 +42,9 @@ class Parser::ASTNodeFactory
 {
 public:
 	explicit ASTNodeFactory(Parser const& _parser):
-		m_parser(_parser), m_location{_parser.position(), -1, _parser.source()} {}
+		m_parser(_parser), m_location(_parser.position(), -1, _parser.source()) {}
 	ASTNodeFactory(Parser const& _parser, ASTPointer<ASTNode> const& _childNode):
-		m_parser(_parser), m_location{_childNode->location()} {}
+		m_parser(_parser), m_location(_childNode->location()) {}
 
 	void markEndPosition() { m_location.end = m_parser.endPosition(); }
 	void setLocation(SourceLocation const& _location) { m_location = _location; }
@@ -64,8 +60,6 @@ public:
 			markEndPosition();
 		return make_shared<NodeType>(m_location, std::forward<Args>(_args)...);
 	}
-
-	SourceLocation const& location() const noexcept { return m_location; }
 
 private:
 	Parser const& m_parser;
@@ -110,21 +104,6 @@ ASTPointer<SourceUnit> Parser::parse(shared_ptr<Scanner> const& _scanner)
 	}
 }
 
-void Parser::parsePragmaVersion(SourceLocation const& _location, vector<Token> const& _tokens, vector<string> const& _literals)
-{
-	SemVerMatchExpressionParser parser(_tokens, _literals);
-	auto matchExpression = parser.parse();
-	static SemVerVersion const currentVersion{string(VersionString)};
-	// FIXME: only match for major version incompatibility
-	if (!matchExpression.matches(currentVersion))
-		m_errorReporter.fatalParserError(
-			_location,
-			"Source file requires different compiler version (current compiler is " +
-			string(VersionString) + " - note that nightly builds are considered to be "
-			"strictly less than the released version"
-		);
-}
-
 ASTPointer<PragmaDirective> Parser::parsePragmaDirective()
 {
 	RecursionGuard recursionGuard(*this);
@@ -153,16 +132,6 @@ ASTPointer<PragmaDirective> Parser::parsePragmaDirective()
 	while (m_scanner->currentToken() != Token::Semicolon && m_scanner->currentToken() != Token::EOS);
 	nodeFactory.markEndPosition();
 	expectToken(Token::Semicolon);
-
-	if (literals.size() >= 2 && literals[0] == "solidity")
-	{
-		parsePragmaVersion(
-			nodeFactory.location(),
-			vector<Token>(tokens.begin() + 1, tokens.end()),
-			vector<string>(literals.begin() + 1, literals.end())
-		);
-	}
-
 	return nodeFactory.createNode<PragmaDirective>(tokens, literals);
 }
 
@@ -201,7 +170,7 @@ ASTPointer<ImportDirective> Parser::parseImportDirective()
 					expectToken(Token::As);
 					alias = expectIdentifierToken();
 				}
-				symbolAliases.emplace_back(move(id), move(alias));
+				symbolAliases.push_back(make_pair(move(id), move(alias)));
 				if (m_scanner->currentToken() != Token::Comma)
 					break;
 				m_scanner->next();
@@ -225,8 +194,6 @@ ASTPointer<ImportDirective> Parser::parseImportDirective()
 			fatalParserError("Expected import path.");
 		path = getLiteralAndAdvance();
 	}
-	if (path->empty())
-		fatalParserError("Import path cannot be empty.");
 	nodeFactory.markEndPosition();
 	expectToken(Token::Semicolon);
 	return nodeFactory.createNode<ImportDirective>(path, unitAlias, move(symbolAliases));
@@ -1036,8 +1003,7 @@ ASTPointer<Statement> Parser::parseStatement()
 ASTPointer<InlineAssembly> Parser::parseInlineAssembly(ASTPointer<ASTString> const& _docString)
 {
 	RecursionGuard recursionGuard(*this);
-	SourceLocation location{position(), -1, source()};
-
+	ASTNodeFactory nodeFactory(*this);
 	expectToken(Token::Assembly);
 	if (m_scanner->currentToken() == Token::StringLiteral)
 	{
@@ -1046,14 +1012,10 @@ ASTPointer<InlineAssembly> Parser::parseInlineAssembly(ASTPointer<ASTString> con
 		m_scanner->next();
 	}
 
-	// Using latest EVM Version for now, it will be run again later.
-	yul::Parser asmParser(m_errorReporter, yul::EVMDialect::looseAssemblyForEVM(EVMVersion{}));
+	yul::Parser asmParser(m_errorReporter);
 	shared_ptr<yul::Block> block = asmParser.parse(m_scanner, true);
-	if (block == nullptr)
-		BOOST_THROW_EXCEPTION(FatalError());
-
-	location.end = block->location.end;
-	return make_shared<InlineAssembly>(location, _docString, block);
+	nodeFactory.markEndPosition();
+	return nodeFactory.createNode<InlineAssembly>(_docString, block);
 }
 
 ASTPointer<IfStatement> Parser::parseIfStatement(ASTPointer<ASTString> const& _docString)
@@ -1562,12 +1524,6 @@ ASTPointer<Expression> Parser::parsePrimaryExpression()
 		nodeFactory.markEndPosition();
 		expression = nodeFactory.createNode<Identifier>(getLiteralAndAdvance());
 		break;
-	case Token::Type:
-		// Inside expressions "type" is the name of a special, globally-available function.
-		nodeFactory.markEndPosition();
-		m_scanner->next();
-		expression = nodeFactory.createNode<Identifier>(make_shared<ASTString>("type"));
-		break;
 	case Token::LParen:
 	case Token::LBrack:
 	{
@@ -1734,7 +1690,7 @@ Parser::IndexAccessedPath Parser::parseIndexAccessedPath()
 			index = parseExpression();
 		SourceLocation indexLocation = iap.path.front()->location();
 		indexLocation.end = endPosition();
-		iap.indices.emplace_back(index, indexLocation);
+		iap.indices.push_back(make_pair(index, indexLocation));
 		expectToken(Token::RBrack);
 	}
 

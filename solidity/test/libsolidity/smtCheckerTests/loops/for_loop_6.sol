@@ -5,11 +5,8 @@ contract C {
         for (y = 2; x < 10; ) {
             y = 3;
         }
-        // False positive due to resetting y.
-        assert(y < 4);
+        assert(y == 2);
     }
 }
 // ----
-// Warning: (213-226): Assertion violation happens here
-// Warning: (142-147): Underflow (resulting value less than 0) happens here
-// Warning: (142-147): Overflow (resulting value larger than 2**256 - 1) happens here
+// Warning: (167-181): Assertion violation happens here\nNote that some information is erased after the execution of loops.\nYou can re-introduce information using require().

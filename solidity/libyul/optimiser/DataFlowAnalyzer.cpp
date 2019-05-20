@@ -51,10 +51,8 @@ void DataFlowAnalyzer::operator()(VariableDeclaration& _varDecl)
 	for (auto const& var: _varDecl.variables)
 		names.emplace(var.name);
 	m_variableScopes.back().variables += names;
-
 	if (_varDecl.value)
 		visit(*_varDecl.value);
-
 	handleAssignment(names, _varDecl.value.get());
 }
 
@@ -98,10 +96,7 @@ void DataFlowAnalyzer::operator()(FunctionDefinition& _fun)
 	for (auto const& parameter: _fun.parameters)
 		m_variableScopes.back().variables.emplace(parameter.name);
 	for (auto const& var: _fun.returnVariables)
-	{
 		m_variableScopes.back().variables.emplace(var.name);
-		handleAssignment({var.name}, nullptr);
-	}
 	ASTModifier::operator()(_fun);
 
 	popScope();
@@ -112,12 +107,10 @@ void DataFlowAnalyzer::operator()(FunctionDefinition& _fun)
 
 void DataFlowAnalyzer::operator()(ForLoop& _for)
 {
-	// If the pre block was not empty,
-	// we would have to deal with more complicated scoping rules.
-	assertThrow(_for.pre.statements.empty(), OptimizerException, "");
-
-	AssignmentsSinceContinue assignmentsSinceCont;
-	assignmentsSinceCont(_for.body);
+	// Special scope handling of the pre block.
+	pushScope(false);
+	for (auto& statement: _for.pre.statements)
+		visit(statement);
 
 	Assignments assignments;
 	assignments(_for.body);
@@ -126,9 +119,10 @@ void DataFlowAnalyzer::operator()(ForLoop& _for)
 
 	visit(*_for.condition);
 	(*this)(_for.body);
-	clearValues(assignmentsSinceCont.names());
 	(*this)(_for.post);
+
 	clearValues(assignments.names());
+	popScope();
 }
 
 void DataFlowAnalyzer::operator()(Block& _block)
@@ -142,22 +136,17 @@ void DataFlowAnalyzer::operator()(Block& _block)
 
 void DataFlowAnalyzer::handleAssignment(set<YulString> const& _variables, Expression* _value)
 {
-	static Expression const zero{Literal{{}, LiteralKind::Number, YulString{"0"}, {}}};
 	clearValues(_variables);
 
-	MovableChecker movableChecker{m_dialect};
+	MovableChecker movableChecker;
 	if (_value)
 		movableChecker.visit(*_value);
-	else
-		for (auto const& var: _variables)
-			m_value[var] = &zero;
-
-	if (_value && _variables.size() == 1)
+	if (_variables.size() == 1)
 	{
 		YulString name = *_variables.begin();
 		// Expression has to be movable and cannot contain a reference
 		// to the variable that will be assigned to.
-		if (movableChecker.movable() && !movableChecker.referencedVariables().count(name))
+		if (_value && movableChecker.movable() && !movableChecker.referencedVariables().count(name))
 			m_value[name] = _value;
 	}
 

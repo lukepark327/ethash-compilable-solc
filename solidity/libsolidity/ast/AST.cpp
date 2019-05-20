@@ -1,18 +1,18 @@
 /*
-	This file is part of solidity.
+    This file is part of solidity.
 
-	solidity is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+    solidity is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-	solidity is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    solidity is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-	You should have received a copy of the GNU General Public License
-	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU General Public License
+    along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 /**
  * @author Christian <c@ethdev.com>
@@ -21,13 +21,13 @@
  */
 
 #include <libsolidity/ast/AST.h>
-
 #include <libsolidity/ast/ASTVisitor.h>
 #include <libsolidity/ast/AST_accept.h>
-#include <libsolidity/ast/TypeProvider.h>
+
 #include <libdevcore/Keccak256.h>
 
 #include <boost/algorithm/string.hpp>
+
 #include <algorithm>
 #include <functional>
 
@@ -106,7 +106,7 @@ ImportAnnotation& ImportDirective::annotation() const
 TypePointer ImportDirective::type() const
 {
 	solAssert(!!annotation().sourceUnit, "");
-	return TypeProvider::module(*annotation().sourceUnit);
+	return make_shared<ModuleType>(*annotation().sourceUnit);
 }
 
 map<FixedHash<4>, FunctionTypePointer> ContractDefinition::interfaceFunctions() const
@@ -137,11 +137,6 @@ bool ContractDefinition::constructorIsPublic() const
 {
 	FunctionDefinition const* f = constructor();
 	return !f || f->isPublic();
-}
-
-bool ContractDefinition::canBeDeployed() const
-{
-	return constructorIsPublic() && annotation().unimplementedFunctions.empty();
 }
 
 FunctionDefinition const* ContractDefinition::fallbackFunction() const
@@ -189,10 +184,10 @@ vector<pair<FixedHash<4>, FunctionTypePointer>> const& ContractDefinition::inter
 			vector<FunctionTypePointer> functions;
 			for (FunctionDefinition const* f: contract->definedFunctions())
 				if (f->isPartOfExternalInterface())
-					functions.push_back(TypeProvider::function(*f, false));
+					functions.push_back(make_shared<FunctionType>(*f, false));
 			for (VariableDeclaration const* v: contract->stateVariables())
 				if (v->isPartOfExternalInterface())
-					functions.push_back(TypeProvider::function(*v));
+					functions.push_back(make_shared<FunctionType>(*v));
 			for (FunctionTypePointer const& fun: functions)
 			{
 				if (!fun->interfaceFunctionType())
@@ -203,7 +198,7 @@ vector<pair<FixedHash<4>, FunctionTypePointer>> const& ContractDefinition::inter
 				{
 					signaturesSeen.insert(functionSignature);
 					FixedHash<4> hash(dev::keccak256(functionSignature));
-					m_interfaceFunctionList->emplace_back(hash, fun);
+					m_interfaceFunctionList->push_back(make_pair(hash, fun));
 				}
 			}
 		}
@@ -215,12 +210,16 @@ vector<Declaration const*> const& ContractDefinition::inheritableMembers() const
 {
 	if (!m_inheritableMembers)
 	{
+		set<string> memberSeen;
 		m_inheritableMembers.reset(new vector<Declaration const*>());
 		auto addInheritableMember = [&](Declaration const* _decl)
 		{
 			solAssert(_decl, "addInheritableMember got a nullpointer.");
-			if (_decl->isVisibleInDerivedContracts())
+			if (memberSeen.count(_decl->name()) == 0 && _decl->isVisibleInDerivedContracts())
+			{
+				memberSeen.insert(_decl->name());
 				m_inheritableMembers->push_back(_decl);
+			}
 		};
 
 		for (FunctionDefinition const* f: definedFunctions())
@@ -243,7 +242,7 @@ vector<Declaration const*> const& ContractDefinition::inheritableMembers() const
 
 TypePointer ContractDefinition::type() const
 {
-	return TypeProvider::typeType(TypeProvider::contract(*this));
+	return make_shared<TypeType>(make_shared<ContractType>(*this));
 }
 
 ContractDefinitionAnnotation& ContractDefinition::annotation() const
@@ -262,7 +261,7 @@ TypeNameAnnotation& TypeName::annotation() const
 
 TypePointer StructDefinition::type() const
 {
-	return TypeProvider::typeType(TypeProvider::structType(*this, DataLocation::Storage));
+	return make_shared<TypeType>(make_shared<StructType>(*this));
 }
 
 TypeDeclarationAnnotation& StructDefinition::annotation() const
@@ -276,12 +275,12 @@ TypePointer EnumValue::type() const
 {
 	auto parentDef = dynamic_cast<EnumDefinition const*>(scope());
 	solAssert(parentDef, "Enclosing Scope of EnumValue was not set");
-	return TypeProvider::enumType(*parentDef);
+	return make_shared<EnumType>(*parentDef);
 }
 
 TypePointer EnumDefinition::type() const
 {
-	return TypeProvider::typeType(TypeProvider::enumType(*this));
+	return make_shared<TypeType>(make_shared<EnumType>(*this));
 }
 
 TypeDeclarationAnnotation& EnumDefinition::annotation() const
@@ -309,7 +308,7 @@ FunctionTypePointer FunctionDefinition::functionType(bool _internal) const
 		case Declaration::Visibility::Private:
 		case Declaration::Visibility::Internal:
 		case Declaration::Visibility::Public:
-			return TypeProvider::function(*this, _internal);
+			return make_shared<FunctionType>(*this, _internal);
 		case Declaration::Visibility::External:
 			return {};
 		}
@@ -325,7 +324,7 @@ FunctionTypePointer FunctionDefinition::functionType(bool _internal) const
 			return {};
 		case Declaration::Visibility::Public:
 		case Declaration::Visibility::External:
-			return TypeProvider::function(*this, _internal);
+			return make_shared<FunctionType>(*this, _internal);
 		}
 	}
 
@@ -336,12 +335,12 @@ FunctionTypePointer FunctionDefinition::functionType(bool _internal) const
 TypePointer FunctionDefinition::type() const
 {
 	solAssert(visibility() != Declaration::Visibility::External, "");
-	return TypeProvider::function(*this);
+	return make_shared<FunctionType>(*this);
 }
 
 string FunctionDefinition::externalSignature() const
 {
-	return TypeProvider::function(*this)->externalSignature();
+	return FunctionType(*this).externalSignature();
 }
 
 FunctionDefinitionAnnotation& FunctionDefinition::annotation() const
@@ -353,7 +352,7 @@ FunctionDefinitionAnnotation& FunctionDefinition::annotation() const
 
 TypePointer ModifierDefinition::type() const
 {
-	return TypeProvider::modifier(*this);
+	return make_shared<ModifierType>(*this);
 }
 
 ModifierDefinitionAnnotation& ModifierDefinition::annotation() const
@@ -365,15 +364,15 @@ ModifierDefinitionAnnotation& ModifierDefinition::annotation() const
 
 TypePointer EventDefinition::type() const
 {
-	return TypeProvider::function(*this);
+	return make_shared<FunctionType>(*this);
 }
 
 FunctionTypePointer EventDefinition::functionType(bool _internal) const
 {
 	if (_internal)
-		return TypeProvider::function(*this);
+		return make_shared<FunctionType>(*this);
 	else
-		return nullptr;
+		return {};
 }
 
 EventDefinitionAnnotation& EventDefinition::annotation() const
@@ -505,8 +504,8 @@ bool VariableDeclaration::hasReferenceOrMappingType() const
 {
 	solAssert(typeName(), "");
 	solAssert(typeName()->annotation().type, "Can only be called after reference resolution");
-	Type const* type = typeName()->annotation().type;
-	return type->category() == Type::Category::Mapping || dynamic_cast<ReferenceType const*>(type);
+	TypePointer const& type = typeName()->annotation().type;
+	return type->category() == Type::Category::Mapping || dynamic_cast<ReferenceType const*>(type.get());
 }
 
 set<VariableDeclaration::Location> VariableDeclaration::allowedDataLocations() const
@@ -554,21 +553,21 @@ TypePointer VariableDeclaration::type() const
 FunctionTypePointer VariableDeclaration::functionType(bool _internal) const
 {
 	if (_internal)
-		return nullptr;
+		return {};
 	switch (visibility())
 	{
 	case Declaration::Visibility::Default:
 		solAssert(false, "visibility() should not return Default");
 	case Declaration::Visibility::Private:
 	case Declaration::Visibility::Internal:
-		return nullptr;
+		return {};
 	case Declaration::Visibility::Public:
 	case Declaration::Visibility::External:
-		return TypeProvider::function(*this);
+		return make_shared<FunctionType>(*this);
 	}
 
 	// To make the compiler happy
-	return nullptr;
+	return {};
 }
 
 VariableDeclarationAnnotation& VariableDeclaration::annotation() const

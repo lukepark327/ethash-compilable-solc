@@ -28,13 +28,7 @@
 
 set -e
 
-if test -z "$1"; then
-	BUILD_DIR="emscripten_build"
-else
-	BUILD_DIR="$1"
-fi
-
-docker run -v $(pwd):/root/project -w /root/project trzeci/emscripten:sdk-tag-1.38.22-64bit \
+if [[ "$OSTYPE" != "darwin"* ]]; then
     ./scripts/travis-emscripten/install_deps.sh
-docker run -v $(pwd):/root/project -w /root/project trzeci/emscripten:sdk-tag-1.38.22-64bit \
-    ./scripts/travis-emscripten/build_emscripten.sh $BUILD_DIR
+    docker run -v $(pwd):/root/project -w /root/project trzeci/emscripten:sdk-tag-1.37.21-64bit ./scripts/travis-emscripten/build_emscripten.sh
+fi

@@ -47,24 +47,22 @@ class ConstantOptimisationMethod
 {
 public:
 	/// Tries to optimised how constants are represented in the source code and modifies
-	/// @a _assembly.
+	/// @a _assembly and its @a _items.
 	/// @returns zero if no optimisations could be performed.
 	static unsigned optimiseConstants(
 		bool _isCreation,
 		size_t _runs,
-		langutil::EVMVersion _evmVersion,
-		Assembly& _assembly
+		solidity::EVMVersion _evmVersion,
+		Assembly& _assembly,
+		AssemblyItems& _items
 	);
-
-protected:
-	/// This is the public API for the optimiser methods, but it doesn't need to be exposed to the caller.
 
 	struct Params
 	{
 		bool isCreation; ///< Whether this is called during contract creation or runtime.
 		size_t runs; ///< Estimated number of calls per opcode oven the lifetime of the contract.
 		size_t multiplicity; ///< Number of times the constant appears in the code.
-		langutil::EVMVersion evmVersion; ///< Version of the EVM
+		solidity::EVMVersion evmVersion; ///< Version of the EVM
 	};
 
 	explicit ConstantOptimisationMethod(Params const& _params, u256 const& _value):
@@ -81,6 +79,8 @@ protected:
 	static bigint simpleRunGas(AssemblyItems const& _items);
 	/// @returns the gas needed to store the given data literally
 	bigint dataGas(bytes const& _data) const;
+	/// @returns the gas needed to store the value literally
+	bigint dataGas() const { return dataGas(toCompactBigEndian(m_value, 1)); }
 	static size_t bytesRequired(AssemblyItems const& _items);
 	/// @returns the combined estimated gas usage taking @a m_params into account.
 	bigint combineGas(
@@ -119,8 +119,7 @@ public:
 class CodeCopyMethod: public ConstantOptimisationMethod
 {
 public:
-	explicit CodeCopyMethod(Params const& _params, u256 const& _value):
-		ConstantOptimisationMethod(_params, _value) {}
+	explicit CodeCopyMethod(Params const& _params, u256 const& _value);
 	bigint gasNeeded() const override;
 	AssemblyItems execute(Assembly& _assembly) const override;
 
@@ -155,7 +154,7 @@ protected:
 	/// Tries to recursively find a way to compute @a _value.
 	AssemblyItems findRepresentation(u256 const& _value);
 	/// Recomputes the value from the calculated representation and checks for correctness.
-	bool checkRepresentation(u256 const& _value, AssemblyItems const& _routine) const;
+	static bool checkRepresentation(u256 const& _value, AssemblyItems const& _routine);
 	bigint gasNeeded(AssemblyItems const& _routine) const;
 
 	/// Counter for the complexity of optimization, will stop when it reaches zero.

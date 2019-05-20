@@ -17,16 +17,18 @@
 
 #pragma once
 
-#include <libsolidity/interface/ReadFile.h>
 #include <liblangutil/Exceptions.h>
+#include <libsolidity/interface/ReadFile.h>
+
 #include <libdevcore/Common.h>
 #include <libdevcore/Exceptions.h>
 
 #include <boost/noncopyable.hpp>
-#include <cstdio>
+
 #include <map>
 #include <string>
 #include <vector>
+#include <cstdio>
 
 namespace dev
 {
@@ -78,8 +80,6 @@ struct FunctionSort: public Sort
 			[&](SortPointer _a, SortPointer _b) { return *_a == *_b; }
 		))
 			return false;
-		solAssert(codomain, "");
-		solAssert(_otherFunction->codomain, "");
 		return *codomain == *_otherFunction->codomain;
 	}
 
@@ -99,10 +99,6 @@ struct ArraySort: public Sort
 			return false;
 		auto _otherArray = dynamic_cast<ArraySort const*>(&_other);
 		solAssert(_otherArray, "");
-		solAssert(_otherArray->domain, "");
-		solAssert(_otherArray->range, "");
-		solAssert(domain, "");
-		solAssert(range, "");
 		return *domain == *_otherArray->domain && *range == *_otherArray->range;
 	}
 
@@ -118,7 +114,6 @@ public:
 	explicit Expression(bool _v): Expression(_v ? "true" : "false", Kind::Bool) {}
 	Expression(size_t _number): Expression(std::to_string(_number), Kind::Int) {}
 	Expression(u256 const& _number): Expression(_number.str(), Kind::Int) {}
-	Expression(s256 const& _number): Expression(_number.str(), Kind::Int) {}
 	Expression(bigint const& _number): Expression(_number.str(), Kind::Int) {}
 
 	Expression(Expression const&) = default;
@@ -142,7 +137,6 @@ public:
 			{"-", 2},
 			{"*", 2},
 			{"/", 2},
-			{"mod", 2},
 			{"select", 2},
 			{"store", 3}
 		};
@@ -167,9 +161,8 @@ public:
 	static Expression select(Expression _array, Expression _index)
 	{
 		solAssert(_array.sort->kind == Kind::Array, "");
-		std::shared_ptr<ArraySort> arraySort = std::dynamic_pointer_cast<ArraySort>(_array.sort);
+		auto const& arraySort = dynamic_cast<ArraySort const*>(_array.sort.get());
 		solAssert(arraySort, "");
-		solAssert(_index.sort, "");
 		solAssert(*arraySort->domain == *_index.sort, "");
 		return Expression(
 			"select",
@@ -183,16 +176,14 @@ public:
 	static Expression store(Expression _array, Expression _index, Expression _element)
 	{
 		solAssert(_array.sort->kind == Kind::Array, "");
-		std::shared_ptr<ArraySort> arraySort = std::dynamic_pointer_cast<ArraySort>(_array.sort);
+		auto const& arraySort = dynamic_cast<ArraySort const*>(_array.sort.get());
 		solAssert(arraySort, "");
-		solAssert(_index.sort, "");
-		solAssert(_element.sort, "");
 		solAssert(*arraySort->domain == *_index.sort, "");
 		solAssert(*arraySort->range == *_element.sort, "");
 		return Expression(
 			"store",
 			std::vector<Expression>{std::move(_array), std::move(_index), std::move(_element)},
-			arraySort
+			_array.sort
 		);
 	}
 
@@ -248,10 +239,6 @@ public:
 	{
 		return Expression("/", std::move(_a), std::move(_b), Kind::Int);
 	}
-	friend Expression operator%(Expression _a, Expression _b)
-	{
-		return Expression("mod", std::move(_a), std::move(_b), Kind::Int);
-	}
 	Expression operator()(std::vector<Expression> _arguments) const
 	{
 		solAssert(
@@ -297,7 +284,6 @@ public:
 	Expression newVariable(std::string _name, SortPointer _sort)
 	{
 		// Subclasses should do something here
-		solAssert(_sort, "");
 		declareVariable(_name, *_sort);
 		return Expression(std::move(_name), {}, std::move(_sort));
 	}
@@ -311,9 +297,6 @@ public:
 
 	/// @returns a list of queries that the system was not able to respond to.
 	virtual std::vector<std::string> unhandledQueries() { return {}; }
-
-	/// @returns how many SMT solvers this interface has.
-	virtual unsigned solvers() { return 1; }
 
 protected:
 	// SMT query timeout in milliseconds.

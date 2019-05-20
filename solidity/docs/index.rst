@@ -19,12 +19,6 @@ user-defined types among other features.
 With Solidity you can create contracts for uses such as voting, crowdfunding, blind auctions,
 and multi-signature wallets.
 
-When deploying contracts, you should use the latest released version of Solidity. This is because breaking changes as well as new features and bug fixes are introduced regularly. We currently use a 0.x version number `to indicate this fast pace of change <https://semver.org/#spec-item-4>`_.
-
-.. warning::
-
-  Solidity recently released the 0.5.x version that introduced a lot of breaking changes. Make sure you read :doc:`the full list <050-breaking-changes>`.
-
 Language Documentation
 ----------------------
 
@@ -56,8 +50,6 @@ If you have any questions, you can try searching for answers or asking on the
 
 Ideas for improving Solidity or this documentation are always welcome, read our :doc:`contributors guide <contributing>` for more details.
 
-.. _translations:
-
 Translations
 ------------
 
@@ -67,7 +59,6 @@ version stands as a reference.
 
 * `Simplified Chinese <http://solidity-cn.readthedocs.io>`_ (in progress)
 * `Spanish <https://solidity-es.readthedocs.io>`_
-* `Turkish <https://github.com/denizozzgur/Solidity_TR/blob/master/README.md>`_ (partial)
 * `Russian <https://github.com/ethereum/wiki/wiki/%5BRussian%5D-%D0%A0%D1%83%D0%BA%D0%BE%D0%B2%D0%BE%D0%B4%D1%81%D1%82%D0%B2%D0%BE-%D0%BF%D0%BE-Solidity>`_ (rather outdated)
 * `Korean <http://solidity-kr.readthedocs.io>`_ (in progress)
 * `French <http://solidity-fr.readthedocs.io>`_ (in progress)
@@ -84,7 +75,6 @@ Contents
    installing-solidity.rst
    solidity-by-example.rst
    solidity-in-depth.rst
-   natspec-format.rst
    security-considerations.rst
    resources.rst
    using-the-compiler.rst
@@ -95,4 +85,5 @@ Contents
    common-patterns.rst
    bugs.rst
    contributing.rst
+   frequently-asked-questions.rst
    lll.rst

@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <boost/noncopyable.hpp>
-#include <functional>
 #include <string>
+#include <functional>
+#include <boost/noncopyable.hpp>
 
 namespace dev
 {

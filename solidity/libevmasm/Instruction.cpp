@@ -19,18 +19,17 @@
  * @date 2014
  */
 
-#include <libevmasm/Instruction.h>
+#include "./Instruction.h"
 
-#include <libdevcore/Common.h>
-#include <libdevcore/CommonIO.h>
 #include <algorithm>
 #include <functional>
-
+#include <libdevcore/Common.h>
+#include <libdevcore/CommonIO.h>
 using namespace std;
 using namespace dev;
-using namespace dev::eth;
+using namespace dev::solidity;
 
-std::map<std::string, Instruction> const dev::eth::c_instructions =
+const std::map<std::string, Instruction> dev::solidity::c_instructions =
 {
 	{ "STOP", Instruction::STOP },
 	{ "ADD", Instruction::ADD },
@@ -175,7 +174,7 @@ std::map<std::string, Instruction> const dev::eth::c_instructions =
 	{ "SELFDESTRUCT", Instruction::SELFDESTRUCT }
 };
 
-static std::map<Instruction, InstructionInfo> const c_instructionInfo =
+static const std::map<Instruction, InstructionInfo> c_instructionInfo =
 { //												Add, Args, Ret, SideEffects, GasPriceTier
 	{ Instruction::STOP,		{ "STOP",			0, 0, 0, true,  Tier::Zero } },
 	{ Instruction::ADD,			{ "ADD",			0, 2, 1, false, Tier::VeryLow } },
@@ -327,7 +326,7 @@ static std::map<Instruction, InstructionInfo> const c_instructionInfo =
 	{ Instruction::SELFDESTRUCT,	{ "SELFDESTRUCT",		0, 1, 0, true, Tier::Special } }
 };
 
-void dev::eth::eachInstruction(
+void dev::solidity::eachInstruction(
 	bytes const& _mem,
 	function<void(Instruction,u256 const&)> const& _onInstruction
 )
@@ -356,7 +355,7 @@ void dev::eth::eachInstruction(
 	}
 }
 
-string dev::eth::disassemble(bytes const& _mem)
+string dev::solidity::disassemble(bytes const& _mem)
 {
 	stringstream ret;
 	eachInstruction(_mem, [&](Instruction _instr, u256 const& _data) {
@@ -373,7 +372,7 @@ string dev::eth::disassemble(bytes const& _mem)
 	return ret.str();
 }
 
-InstructionInfo dev::eth::instructionInfo(Instruction _inst)
+InstructionInfo dev::solidity::instructionInfo(Instruction _inst)
 {
 	try
 	{
@@ -385,7 +384,7 @@ InstructionInfo dev::eth::instructionInfo(Instruction _inst)
 	}
 }
 
-bool dev::eth::isValidInstruction(Instruction _inst)
+bool dev::solidity::isValidInstruction(Instruction _inst)
 {
 	return !!c_instructionInfo.count(_inst);
 }

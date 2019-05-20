@@ -10,32 +10,15 @@ report = open("report.txt", "wb")
 
 for optimize in [False, True]:
     for f in sorted(glob.glob("*.sol")):
-        sources = {}
-        sources[f] = {'content': open(f, 'r').read()}
-        input = {
-            'language': 'Solidity',
-            'sources': sources,
-            'settings': {
-                'optimizer': {
-                    'enabled': optimize
-                },
-                'outputSelection': { '*': { '*': ['evm.bytecode.object', 'metadata'] } }
-            }
-        }
-        args = [solc, '--standard-json']
+        args = [solc, '--combined-json', 'bin,metadata', f]
         if optimize:
             args += ['--optimize']
-        proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (out, err) = proc.communicate(json.dumps(input))
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (out, err) = proc.communicate()
         try:
             result = json.loads(out.strip())
-            for filename in sorted(result['contracts'].keys()):
-                for contractName in sorted(result['contracts'][filename].keys()):
-                    contractData = result['contracts'][filename][contractName]
-                    if 'evm' in contractData and 'bytecode' in contractData['evm']:
-                        report.write(filename + ':' + contractName + ' ' + contractData['evm']['bytecode']['object'] + '\n')
-                    else:
-                        report.write(filename + ':' + contractName + ' NO BYTECODE\n')
-                    report.write(filename + ':' + contractName + ' ' + contractData['metadata'] + '\n')
-        except KeyError:
+            for contractName in sorted(result['contracts'].keys()):
+                report.write(contractName + ' ' + result['contracts'][contractName]['bin'] + '\n')
+                report.write(contractName + ' ' + result['contracts'][contractName]['metadata'] + '\n')
+        except:
             report.write(f + ": ERROR\n")

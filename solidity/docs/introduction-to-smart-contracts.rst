@@ -12,12 +12,12 @@ Let us begin with a basic example that sets the value of a variable and exposes
 it for other contracts to access. It is fine if you do not understand
 everything right now, we will go into more detail later.
 
-Storage Example
-===============
+Storage
+=======
 
 ::
 
-    pragma solidity >=0.4.0 <0.7.0;
+    pragma solidity >=0.4.0 <0.6.0;
 
     contract SimpleStorage {
         uint storedData;
@@ -33,15 +33,15 @@ Storage Example
 
 The first line simply tells that the source code is written for
 Solidity version 0.4.0 or anything newer that does not break functionality
-(up to, but not including, version 0.7.0). This is to ensure that the
+(up to, but not including, version 0.6.0). This is to ensure that the
 contract is not compilable with a new (breaking) compiler version, where it could behave differently.
-:ref:`Pragmas<pragma>` are common instructions for compilers about how to treat the
+So-called pragmas are common instructions for compilers about how to treat the
 source code (e.g. `pragma once <https://en.wikipedia.org/wiki/Pragma_once>`_).
 
 A contract in the sense of Solidity is a collection of code (its *functions*) and
 data (its *state*) that resides at a specific address on the Ethereum
 blockchain. The line ``uint storedData;`` declares a state variable called ``storedData`` of
-type ``uint`` (*u*\nsigned *int*\eger of *256* bits). You can think of it as a single slot
+type ``uint`` (*u*nsigned *int*eger of *256* bits). You can think of it as a single slot
 in a database that can be queried and altered by calling functions of the
 code that manages the database. In the case of Ethereum, this is always the owning
 contract. And in this case, the functions ``set`` and ``get`` can be used to modify
@@ -81,7 +81,7 @@ registering with username and password — all you need is an Ethereum keypair.
 
 ::
 
-    pragma solidity >=0.5.0 <0.7.0;
+    pragma solidity >0.4.99 <0.6.0;
 
     contract Coin {
         // The keyword "public" makes those variables
@@ -387,10 +387,8 @@ paragraphs.
 Each account has a data area called **storage**, which is persistent between function calls
 and transactions.
 Storage is a key-value store that maps 256-bit words to 256-bit words.
-It is not possible to enumerate storage from within a contract, it is
-comparatively costly to read, and even more to initialise and modify storage. Because of this cost,
-you should minimize what you store in persistent storage to what the contract needs to run.
-Store data like derived calculations, caching, and aggregates outside of the contract.
+It is not possible to enumerate storage from within a contract and it is
+comparatively costly to read, and even more to modify storage.
 A contract can neither read nor write to any storage apart from its own.
 
 The second data area is called **memory**, of which a contract obtains

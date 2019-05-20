@@ -22,31 +22,31 @@
 
 #include <libyul/AsmDataForward.h>
 
-#include <libyul/optimiser/DataFlowAnalyzer.h>
+#include <libyul/optimiser/ASTWalker.h>
 
 namespace yul
 {
-struct Dialect;
 
 /**
  * Applies simplification rules to all expressions.
  * The component will work best if the code is in SSA form, but
  * this is not required for correctness.
  *
- * It tracks the current values of variables using the DataFlowAnalyzer
- * and takes them into account for replacements.
- *
- * Prerequisite: Disambiguator, ForLoopInitRewriter.
+ * Prerequisite: Disambiguator.
  */
-class ExpressionSimplifier: public DataFlowAnalyzer
+class ExpressionSimplifier: public ASTModifier
 {
 public:
 	using ASTModifier::operator();
 	virtual void visit(Expression& _expression);
 
-	static void run(Dialect const& _dialect, Block& _ast);
+	static void run(Block& _ast);
 private:
-	explicit ExpressionSimplifier(Dialect const& _dialect): DataFlowAnalyzer(_dialect) {}
+	explicit ExpressionSimplifier(std::map<YulString, Expression const*> _ssaValues):
+		m_ssaValues(std::move(_ssaValues))
+	{}
+
+	std::map<YulString, Expression const*> m_ssaValues;
 };
 
 }

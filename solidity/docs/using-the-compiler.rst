@@ -17,15 +17,10 @@ Using ``solc --help`` provides you with an explanation of all options. The compi
 If you only want to compile a single file, you run it as ``solc --bin sourceFile.sol`` and it will print the binary. If you want to get some of the more advanced output variants of ``solc``, it is probably better to tell it to output everything to separate files using ``solc -o outputDirectory --bin --ast --asm sourceFile.sol``.
 
 Before you deploy your contract, activate the optimizer when compiling using ``solc --optimize --bin sourceFile.sol``.
-By default, the optimizer will optimize the contract assuming it is called 200 times across its lifetime
-(more specifically, it assumes each opcode is executed around 200 times).
+By default, the optimizer will optimize the contract assuming it is called 200 times across its lifetime.
 If you want the initial contract deployment to be cheaper and the later function executions to be more expensive,
-set it to ``--optimize-runs=1``. If you expect many transactions and do not care for higher deployment cost and
-output size, set ``--optimize-runs`` to a high number.
-This parameter has effects on the following (this might change in the future):
-
- - the size of the binary search in the function dispatch routine
- - the way constants like large numbers or strings are stored
+set it to ``--runs=1``. If you expect many transactions and do not care for higher deployment cost and
+output size, set ``--runs`` to a high number.
 
 The commandline compiler will automatically read imported files from the filesystem, but
 it is also possible to provide path redirects using ``prefix=path`` in the following way:
@@ -108,21 +103,18 @@ at each version. Backward compatibility is not guaranteed between each version.
 
 - ``homestead`` (oldest version)
 - ``tangerineWhistle``
-   - Gas cost for access to other accounts increased, relevant for gas estimation and the optimizer.
-   - All gas sent by default for external calls, previously a certain amount had to be retained.
+   - gas cost for access to other accounts increased, relevant for gas estimation and the optimizer.
+   - all gas sent by default for external calls, previously a certain amount had to be retained.
 - ``spuriousDragon``
-   - Gas cost for the ``exp`` opcode increased, relevant for gas estimation and the optimizer.
-- ``byzantium``
-   - Opcodes ``returndatacopy``, ``returndatasize`` and ``staticcall`` are available in assembly.
-   - The ``staticcall`` opcode is used when calling non-library view or pure functions, which prevents the functions from modifying state at the EVM level, i.e., even applies when you use invalid type conversions.
-   - It is possible to access dynamic data returned from function calls.
+   - gas cost for the ``exp`` opcode increased, relevant for gas estimation and the optimizer.
+- ``byzantium`` (**default**)
+   - opcodes ``returndatacopy``, ``returndatasize`` and ``staticcall`` are available in assembly.
+   - the ``staticcall`` opcode is used when calling non-library view or pure functions, which prevents the functions from modifying state at the EVM level, i.e., even applies when you use invalid type conversions.
+   - it is possible to access dynamic data returned from function calls.
    - ``revert`` opcode introduced, which means that ``revert()`` will not waste gas.
-- ``constantinople``
-   - Opcodes ``create2`, ``extcodehash``, ``shl``, ``shr`` and ``sar`` are available in assembly.
-   - Shifting operators use shifting opcodes and thus need less gas.
-- ``petersburg`` (**default**)
-   - The compiler behaves the same way as with constantinople.
-
+- ``constantinople`` (still in progress)
+   - opcodes ``shl``, ``shr`` and ``sar`` are available in assembly.
+   - shifting operators use shifting opcodes and thus need less gas.
 
 .. _compiler-api:
 
@@ -147,10 +139,10 @@ Input Description
 .. code-block:: none
 
     {
-      // Required: Source code language. Currently supported are "Solidity" and "Yul".
-      "language": "Solidity",
+      // Required: Source code language, such as "Solidity", "Vyper", "lll", "assembly", etc.
+      language: "Solidity",
       // Required
-      "sources":
+      sources:
       {
         // The keys here are the "global" names of the source files,
         // imports can use other files via remappings (see below).
@@ -163,16 +155,13 @@ Input Description
           // URL(s) should be imported in this order and the result checked against the
           // keccak256 hash (if available). If the hash doesn't match or none of the
           // URL(s) result in success, an error should be raised.
-          // Using the commandline interface only filesystem paths are supported.
-          // With the JavaScript interface the URL will be passed to the user-supplied
-          // read callback, so any URL supported by the callback can be used.
           "urls":
           [
             "bzzr://56ab...",
             "ipfs://Qma...",
-            "/tmp/path/to/file.sol"
             // If files are used, their directories should be added to the command line via
             // `--allow-paths <path>`.
+            "file:///tmp/path/to/file.sol"
           ]
         },
         "mortal":
@@ -184,54 +173,26 @@ Input Description
         }
       },
       // Optional
-      "settings":
+      settings:
       {
         // Optional: Sorted list of remappings
-        "remappings": [ ":g=/dir" ],
+        remappings: [ ":g/dir" ],
         // Optional: Optimizer settings
-        "optimizer": {
+        optimizer: {
           // disabled by default
-          "enabled": true,
+          enabled: true,
           // Optimize for how many times you intend to run the code.
           // Lower values will optimize more for initial deployment cost, higher values will optimize more for high-frequency usage.
-          "runs": 200,
-          // Switch optimizer components on or off in detail.
-          // The "enabled" switch above provides two defaults which can be
-          // tweaked here. If "details" is given, "enabled" can be omitted.
-          "details": {
-            // The peephole optimizer is always on if no details are given, use details to switch it off.
-            "peephole": true,
-            // The unused jumpdest remover is always on if no details are given, use details to switch it off.
-            "jumpdestRemover": true,
-            // Sometimes re-orders literals in commutative operations.
-            "orderLiterals": false,
-            // Removes duplicate code blocks
-            "deduplicate": false,
-            // Common subexpression elimination, this is the most complicated step but
-            // can also provide the largest gain.
-            "cse": false,
-            // Optimize representation of literal numbers and strings in code.
-            "constantOptimizer": false,
-            // The new Yul optimizer. Mostly operates on the code of ABIEncoderV2.
-            // It can only be activated through the details here.
-            // This feature is still considered experimental.
-            "yul": false,
-            // Tuning options for the Yul optimizer.
-            "yulDetails": {
-              // Improve allocation of stack slots for variables, can free up stack slots early.
-              // Activated by default if the Yul optimizer is activated.
-              "stackAllocation": true
-            }
-          }
+          runs: 200
         },
-        "evmVersion": "byzantium", // Version of the EVM to compile for. Affects type checking and code generation. Can be homestead, tangerineWhistle, spuriousDragon, byzantium, constantinople or petersburg
+        evmVersion: "byzantium", // Version of the EVM to compile for. Affects type checking and code generation. Can be homestead, tangerineWhistle, spuriousDragon, byzantium or constantinople
         // Metadata settings (optional)
-        "metadata": {
+        metadata: {
           // Use only literal content and not URLs (false by default)
-          "useLiteralContent": true
+          useLiteralContent: true
         },
         // Addresses of the libraries. If not all libraries are given here, it can result in unlinked objects whose output data is different.
-        "libraries": {
+        libraries: {
           // The top level key is the the name of the source file where the library is used.
           // If remappings are used, this source file should match the global path after remappings were applied.
           // If this key is an empty string, that refers to a global level.
@@ -239,33 +200,20 @@ Input Description
             "MyLib": "0x123123..."
           }
         }
-        // The following can be used to select desired outputs based
-        // on file and contract names.
-        // If this field is omitted, then the compiler loads and does type checking,
-        // but will not generate any outputs apart from errors.
-        // The first level key is the file name and the second level key is the contract name.
-        // An empty contract name is used for outputs that are not tied to a contract
-        // but to the whole source file like the AST.
-        // A star as contract name refers to all contracts in the file.
-        // Similarly, a star as a file name matches all files.
-        // To select all outputs the compiler can possibly generate, use
-        // "outputSelection: { "*": { "*": [ "*" ], "": [ "*" ] } }"
-        // but note that this might slow down the compilation process needlessly.
+        // The following can be used to select desired outputs.
+        // If this field is omitted, then the compiler loads and does type checking, but will not generate any outputs apart from errors.
+        // The first level key is the file name and the second is the contract name, where empty contract name refers to the file itself,
+        // while the star refers to all of the contracts.
         //
         // The available output types are as follows:
-        //
-        // File level (needs empty string as contract name):
+        //   abi - ABI
         //   ast - AST of all source files
         //   legacyAST - legacy AST of all source files
-        //
-        // Contract level (needs the contract name or "*"):
-        //   abi - ABI
         //   devdoc - Developer documentation (natspec)
         //   userdoc - User documentation (natspec)
         //   metadata - Metadata
-        //   ir - Yul intermediate representation of the code before optimization
-        //   irOptimized - Intermediate representation after optimization
-        //   evm.assembly - New assembly format
+        //   ir - New assembly format before desugaring
+        //   evm.assembly - New assembly format after desugaring
         //   evm.legacyAssembly - Old-style assembly format in JSON
         //   evm.bytecode.object - Bytecode object
         //   evm.bytecode.opcodes - Opcodes list
@@ -274,25 +222,28 @@ Input Description
         //   evm.deployedBytecode* - Deployed bytecode (has the same options as evm.bytecode)
         //   evm.methodIdentifiers - The list of function hashes
         //   evm.gasEstimates - Function gas estimates
-        //   ewasm.wast - eWASM S-expressions format (not supported at the moment)
-        //   ewasm.wasm - eWASM binary format (not supported at the moment)
+        //   ewasm.wast - eWASM S-expressions format (not supported atm)
+        //   ewasm.wasm - eWASM binary format (not supported atm)
         //
         // Note that using a using `evm`, `evm.bytecode`, `ewasm`, etc. will select every
         // target part of that output. Additionally, `*` can be used as a wildcard to request everything.
         //
-        "outputSelection": {
+        outputSelection: {
+          // Enable the metadata and bytecode outputs of every single contract.
           "*": {
-            "*": [
-              "metadata", "evm.bytecode" // Enable the metadata and bytecode outputs of every single contract.
-              , "evm.bytecode.sourceMap" // Enable the source map output of every single contract.
-            ],
-            "": [
-              "ast" // Enable the AST output of every single file.
-            ]
+            "*": [ "metadata", "evm.bytecode" ]
           },
           // Enable the abi and opcodes output of MyContract defined in file def.
           "def": {
             "MyContract": [ "abi", "evm.bytecode.opcodes" ]
+          },
+          // Enable the source map output of every single contract.
+          "*": {
+            "*": [ "evm.bytecode.sourceMap" ]
+          },
+          // Enable the legacy AST output of every single file.
+          "*": {
+            "": [ "legacyAST" ]
           }
         }
       }
@@ -306,106 +257,106 @@ Output Description
 
     {
       // Optional: not present if no errors/warnings were encountered
-      "errors": [
+      errors: [
         {
           // Optional: Location within the source file.
-          "sourceLocation": {
-            "file": "sourceFile.sol",
-            "start": 0,
-            "end": 100
+          sourceLocation: {
+            file: "sourceFile.sol",
+            start: 0,
+            end: 100
           ],
           // Mandatory: Error type, such as "TypeError", "InternalCompilerError", "Exception", etc.
           // See below for complete list of types.
-          "type": "TypeError",
+          type: "TypeError",
           // Mandatory: Component where the error originated, such as "general", "ewasm", etc.
-          "component": "general",
+          component: "general",
           // Mandatory ("error" or "warning")
-          "severity": "error",
+          severity: "error",
           // Mandatory
-          "message": "Invalid keyword"
+          message: "Invalid keyword"
           // Optional: the message formatted with source location
-          "formattedMessage": "sourceFile.sol:100: Invalid keyword"
+          formattedMessage: "sourceFile.sol:100: Invalid keyword"
         }
       ],
       // This contains the file-level outputs. In can be limited/filtered by the outputSelection settings.
-      "sources": {
+      sources: {
         "sourceFile.sol": {
-          // Identifier of the source (used in source maps)
-          "id": 1,
+          // Identifier (used in source maps)
+          id: 1,
           // The AST object
-          "ast": {},
+          ast: {},
           // The legacy AST object
-          "legacyAST": {}
+          legacyAST: {}
         }
       },
       // This contains the contract-level outputs. It can be limited/filtered by the outputSelection settings.
-      "contracts": {
+      contracts: {
         "sourceFile.sol": {
           // If the language used has no contract names, this field should equal to an empty string.
           "ContractName": {
             // The Ethereum Contract ABI. If empty, it is represented as an empty array.
             // See https://github.com/ethereum/wiki/wiki/Ethereum-Contract-ABI
-            "abi": [],
+            abi: [],
             // See the Metadata Output documentation (serialised JSON string)
-            "metadata": "{...}",
+            metadata: "{...}",
             // User documentation (natspec)
-            "userdoc": {},
+            userdoc: {},
             // Developer documentation (natspec)
-            "devdoc": {},
+            devdoc: {},
             // Intermediate representation (string)
-            "ir": "",
+            ir: "",
             // EVM-related outputs
-            "evm": {
+            evm: {
               // Assembly (string)
-              "assembly": "",
+              assembly: "",
               // Old-style assembly (object)
-              "legacyAssembly": {},
+              legacyAssembly: {},
               // Bytecode and related details.
-              "bytecode": {
+              bytecode: {
                 // The bytecode as a hex string.
-                "object": "00fe",
+                object: "00fe",
                 // Opcodes list (string)
-                "opcodes": "",
+                opcodes: "",
                 // The source mapping as a string. See the source mapping definition.
-                "sourceMap": "",
+                sourceMap: "",
                 // If given, this is an unlinked object.
-                "linkReferences": {
+                linkReferences: {
                   "libraryFile.sol": {
                     // Byte offsets into the bytecode. Linking replaces the 20 bytes located there.
                     "Library1": [
-                      { "start": 0, "length": 20 },
-                      { "start": 200, "length": 20 }
+                      { start: 0, length: 20 },
+                      { start: 200, length: 20 }
                     ]
                   }
                 }
               },
               // The same layout as above.
-              "deployedBytecode": { },
+              deployedBytecode: { },
               // The list of function hashes
-              "methodIdentifiers": {
+              methodIdentifiers: {
                 "delegate(address)": "5c19a95c"
               },
               // Function gas estimates
-              "gasEstimates": {
-                "creation": {
-                  "codeDepositCost": "420000",
-                  "executionCost": "infinite",
-                  "totalCost": "infinite"
+              gasEstimates: {
+                creation: {
+                  codeDepositCost: "420000",
+                  executionCost: "infinite",
+                  totalCost: "infinite"
                 },
-                "external": {
+                external: {
                   "delegate(address)": "25000"
                 },
-                "internal": {
+                internal: {
                   "heavyLifting()": "infinite"
                 }
               }
             },
             // eWASM related outputs
-            "ewasm": {
+            ewasm: {
               // S-expressions format
-              "wast": "",
+              wast: "",
               // Binary format (hex string)
-              "wasm": ""
+              wasm: ""
             }
           }
         }

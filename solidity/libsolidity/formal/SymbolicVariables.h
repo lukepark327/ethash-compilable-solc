@@ -17,9 +17,12 @@
 
 #pragma once
 
-#include <libsolidity/formal/SolverInterface.h>
 #include <libsolidity/formal/SSAVariable.h>
+
+#include <libsolidity/formal/SolverInterface.h>
+
 #include <libsolidity/ast/Types.h>
+
 #include <memory>
 
 namespace dev
@@ -37,24 +40,25 @@ class SymbolicVariable
 public:
 	SymbolicVariable(
 		TypePointer _type,
-		std::string _uniqueName,
-		smt::SolverInterface& _interface
-	);
-	SymbolicVariable(
-		smt::SortPointer _sort,
-		std::string _uniqueName,
+		std::string const& _uniqueName,
 		smt::SolverInterface& _interface
 	);
 
 	virtual ~SymbolicVariable() = default;
 
-	smt::Expression currentValue() const;
-	std::string currentName() const;
-	virtual smt::Expression valueAtIndex(int _index) const;
-	virtual smt::Expression increaseIndex();
-	virtual smt::Expression operator()(std::vector<smt::Expression> /*_arguments*/) const
+	smt::Expression currentValue() const
 	{
-		solAssert(false, "Function application to non-function.");
+		return valueAtIndex(m_ssa->index());
+	}
+
+	std::string currentName() const;
+
+	virtual smt::Expression valueAtIndex(int _index) const = 0;
+
+	smt::Expression increaseIndex()
+	{
+		++(*m_ssa);
+		return currentValue();
 	}
 
 	unsigned index() const { return m_ssa->index(); }
@@ -65,9 +69,6 @@ public:
 protected:
 	std::string uniqueSymbol(unsigned _index) const;
 
-	/// SMT sort.
-	smt::SortPointer m_sort;
-	/// Solidity type, used for size and range in number types.
 	TypePointer m_type;
 	std::string m_uniqueName;
 	smt::SolverInterface& m_interface;
@@ -82,9 +83,12 @@ class SymbolicBoolVariable: public SymbolicVariable
 public:
 	SymbolicBoolVariable(
 		TypePointer _type,
-		std::string _uniqueName,
+		std::string const& _uniqueName,
 		smt::SolverInterface& _interface
 	);
+
+protected:
+	smt::Expression valueAtIndex(int _index) const;
 };
 
 /**
@@ -95,9 +99,12 @@ class SymbolicIntVariable: public SymbolicVariable
 public:
 	SymbolicIntVariable(
 		TypePointer _type,
-		std::string _uniqueName,
+		std::string const& _uniqueName,
 		smt::SolverInterface& _interface
 	);
+
+protected:
+	smt::Expression valueAtIndex(int _index) const;
 };
 
 /**
@@ -107,7 +114,7 @@ class SymbolicAddressVariable: public SymbolicIntVariable
 {
 public:
 	SymbolicAddressVariable(
-		std::string _uniqueName,
+		std::string const& _uniqueName,
 		smt::SolverInterface& _interface
 	);
 };
@@ -120,69 +127,7 @@ class SymbolicFixedBytesVariable: public SymbolicIntVariable
 public:
 	SymbolicFixedBytesVariable(
 		unsigned _numBytes,
-		std::string _uniqueName,
-		smt::SolverInterface& _interface
-	);
-};
-
-/**
- * Specialization of SymbolicVariable for FunctionType
- */
-class SymbolicFunctionVariable: public SymbolicVariable
-{
-public:
-	SymbolicFunctionVariable(
-		TypePointer _type,
-		std::string _uniqueName,
-		smt::SolverInterface& _interface
-	);
-
-	smt::Expression increaseIndex();
-	smt::Expression operator()(std::vector<smt::Expression> _arguments) const;
-
-private:
-	/// Creates a new function declaration.
-	void resetDeclaration();
-
-	/// Stores the current function declaration.
-	smt::Expression m_declaration;
-};
-
-/**
- * Specialization of SymbolicVariable for Mapping
- */
-class SymbolicMappingVariable: public SymbolicVariable
-{
-public:
-	SymbolicMappingVariable(
-		TypePointer _type,
-		std::string _uniqueName,
-		smt::SolverInterface& _interface
-	);
-};
-
-/**
- * Specialization of SymbolicVariable for Array
- */
-class SymbolicArrayVariable: public SymbolicVariable
-{
-public:
-	SymbolicArrayVariable(
-		TypePointer _type,
-		std::string _uniqueName,
-		smt::SolverInterface& _interface
-	);
-};
-
-/**
- * Specialization of SymbolicVariable for Enum
- */
-class SymbolicEnumVariable: public SymbolicVariable
-{
-public:
-	SymbolicEnumVariable(
-		TypePointer _type,
-		std::string _uniqueName,
+		std::string const& _uniqueName,
 		smt::SolverInterface& _interface
 	);
 };

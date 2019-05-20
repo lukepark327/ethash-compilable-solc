@@ -37,7 +37,7 @@ Internal Function Calls
 Functions of the current contract can be called directly ("internally"), also recursively, as seen in
 this nonsensical example::
 
-    pragma solidity >=0.4.16 <0.7.0;
+    pragma solidity >=0.4.16 <0.6.0;
 
     contract C {
         function g(uint a) public pure returns (uint ret) { return a + f(); }
@@ -72,9 +72,10 @@ all function arguments have to be copied to memory.
 
 When calling functions of other contracts, you can specify the amount of Wei or gas sent with the call with the special options ``.value()`` and ``.gas()``, respectively. Any Wei you send to the contract is added to the total balance of the contract:
 
+
 ::
 
-    pragma solidity >=0.4.0 <0.7.0;
+    pragma solidity >=0.4.0 <0.6.0;
 
     contract InfoFeed {
         function info() public payable returns (uint ret) { return 42; }
@@ -90,7 +91,7 @@ You need to use the modifier ``payable`` with the ``info`` function because
 otherwise, the ``.value()`` option would not be available.
 
 .. warning::
-  Be careful that ``feed.info.value(10).gas(800)`` only locally sets the ``value`` and amount of ``gas`` sent with the function call, and the parentheses at the end perform the actual call. So in this case, the function is not called and the ``value`` and ``gas`` settings are lost.
+  Be careful that ``feed.info.value(10).gas(800)`` only locally sets the ``value`` and amount of ``gas`` sent with the function call, and the parentheses at the end perform the actual call. So in this case, the function is not called.
 
 Function calls cause exceptions if the called contract does not exist (in the
 sense that the account does not contain code) or if the called contract itself
@@ -121,7 +122,7 @@ parameters from the function declaration, but can be in arbitrary order.
 
 ::
 
-    pragma solidity >=0.4.0 <0.7.0;
+    pragma solidity >=0.4.0 <0.6.0;
 
     contract C {
         mapping(uint => uint) data;
@@ -144,7 +145,7 @@ Those parameters will still be present on the stack, but they are inaccessible.
 
 ::
 
-    pragma solidity >=0.4.16 <0.7.0;
+    pragma solidity >=0.4.16 <0.6.0;
 
     contract C {
         // omitted name for parameter
@@ -167,7 +168,7 @@ is compiled so recursive creation-dependencies are not possible.
 
 ::
 
-    pragma solidity >=0.5.0 <0.7.0;
+    pragma solidity >0.4.99 <0.6.0;
 
     contract D {
         uint public x;
@@ -224,7 +225,7 @@ groupings of expressions.
 
 ::
 
-    pragma solidity >0.4.23 <0.7.0;
+    pragma solidity >0.4.23 <0.6.0;
 
     contract C {
         uint[] data;
@@ -263,31 +264,6 @@ Complications for Arrays and Structs
 The semantics of assignments are a bit more complicated for non-value types like arrays and structs.
 Assigning *to* a state variable always creates an independent copy. On the other hand, assigning to a local variable creates an independent copy only for elementary types, i.e. static types that fit into 32 bytes. If structs or arrays (including ``bytes`` and ``string``) are assigned from a state variable to a local variable, the local variable holds a reference to the original state variable. A second assignment to the local variable does not modify the state but only changes the reference. Assignments to members (or elements) of the local variable *do* change the state.
 
-In the example below the call to ``g(x)`` has no effect on ``x`` because it creates
-an independent copy of the storage value in memory. However, ``h(x)`` successfully modifies ``x``
-because only a reference and not a copy is passed.
-
-::
-
-    pragma solidity >=0.4.16 <0.7.0;
-
-     contract C {
-        uint[20] x;
-
-         function f() public {
-            g(x);
-            h(x);
-        }
-
-         function g(uint[20] memory y) internal pure {
-            y[2] = 3;
-        }
-
-         function h(uint[20] storage y) internal {
-            y[3] = 4;
-        }
-    }
-
 .. index:: ! scoping, declarations, default value
 
 .. _default-value:
@@ -315,7 +291,7 @@ the two variables have the same name but disjoint scopes.
 
 ::
 
-    pragma solidity >=0.5.0 <0.7.0;
+    pragma solidity >0.4.99 <0.6.0;
     contract C {
         function minimalScoping() pure public {
             {
@@ -336,7 +312,7 @@ In any case, you will get a warning about the outer variable being shadowed.
 
 ::
 
-    pragma solidity >=0.5.0 <0.7.0;
+    pragma solidity >0.4.99 <0.6.0;
     // This will report a warning
     contract C {
         function f() pure public returns (uint) {
@@ -356,7 +332,7 @@ In any case, you will get a warning about the outer variable being shadowed.
 
  ::
 
-    pragma solidity >=0.5.0 <0.7.0;
+    pragma solidity >0.4.99 <0.6.0;
     // This will not compile
     contract C {
         function f() pure public returns (uint) {
@@ -403,7 +379,7 @@ a message string for ``require``, but not for ``assert``.
 
 ::
 
-    pragma solidity >=0.5.0 <0.7.0;
+    pragma solidity >0.4.99 <0.6.0;
 
     contract Sharer {
         function sendHalf(address payable addr) public payable returns (uint balance) {
@@ -449,7 +425,7 @@ The following example shows how an error string can be used together with revert
 
 ::
 
-    pragma solidity >=0.5.0 <0.7.0;
+    pragma solidity >0.4.99 <0.6.0;
 
     contract VendingMachine {
         function buy(uint amount) public payable {

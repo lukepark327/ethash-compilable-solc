@@ -10,9 +10,8 @@
     mstore(0, calldataload(0))
     mstore(0, x)
 }
-// ====
-// step: commonSubexpressionEliminator
 // ----
+// commonSubexpressionEliminator
 // {
 //     let a := 10
 //     let x := 20

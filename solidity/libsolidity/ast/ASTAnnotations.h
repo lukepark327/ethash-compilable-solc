@@ -23,15 +23,12 @@
 #pragma once
 
 #include <libsolidity/ast/ASTForward.h>
-#include <libsolidity/ast/ASTEnums.h>
 #include <libsolidity/ast/ExperimentalFeatures.h>
-
-#include <boost/optional.hpp>
 
 #include <map>
 #include <memory>
-#include <set>
 #include <vector>
+#include <set>
 
 namespace yul
 {
@@ -45,11 +42,11 @@ namespace solidity
 {
 
 class Type;
-using TypePointer = Type const*;
+using TypePointer = std::shared_ptr<Type const>;
 
 struct ASTAnnotation
 {
-	virtual ~ASTAnnotation() = default;
+	virtual ~ASTAnnotation() {}
 };
 
 struct DocTag
@@ -60,7 +57,7 @@ struct DocTag
 
 struct DocumentedAnnotation
 {
-	virtual ~DocumentedAnnotation() = default;
+	virtual ~DocumentedAnnotation() {}
 	/// Mapping docstring tag name -> content.
 	std::multimap<std::string, DocTag> docTags;
 };
@@ -122,7 +119,7 @@ struct ModifierDefinitionAnnotation: ASTAnnotation, DocumentedAnnotation
 struct VariableDeclarationAnnotation: ASTAnnotation
 {
 	/// Type of variable (type of identifier referencing this variable).
-	TypePointer type = nullptr;
+	TypePointer type;
 };
 
 struct StatementAnnotation: ASTAnnotation, DocumentedAnnotation
@@ -155,7 +152,7 @@ struct TypeNameAnnotation: ASTAnnotation
 {
 	/// Type declared by this type name, i.e. type of a variable where this type name is used.
 	/// Set during reference resolution stage.
-	TypePointer type = nullptr;
+	TypePointer type;
 };
 
 struct UserDefinedTypeNameAnnotation: TypeNameAnnotation
@@ -170,7 +167,7 @@ struct UserDefinedTypeNameAnnotation: TypeNameAnnotation
 struct ExpressionAnnotation: ASTAnnotation
 {
 	/// Inferred type of the expression.
-	TypePointer type = nullptr;
+	TypePointer type;
 	/// Whether the expression is a constant variable
 	bool isConstant = false;
 	/// Whether the expression is pure, i.e. compile-time constant.
@@ -179,10 +176,9 @@ struct ExpressionAnnotation: ASTAnnotation
 	bool isLValue = false;
 	/// Whether the expression is used in a context where the LValue is actually required.
 	bool lValueRequested = false;
-
-	/// Types and - if given - names of arguments if the expr. is a function
-	/// that is called, used for overload resoultion
-	boost::optional<FuncCallArguments> arguments;
+	/// Types of arguments if the expression is a function that is called - used
+	/// for overload resolution.
+	std::shared_ptr<std::vector<TypePointer>> argumentTypes;
 };
 
 struct IdentifierAnnotation: ExpressionAnnotation
@@ -203,7 +199,7 @@ struct BinaryOperationAnnotation: ExpressionAnnotation
 {
 	/// The common type that is used for the operation, not necessarily the result type (which
 	/// e.g. for comparisons is bool).
-	TypePointer commonType = nullptr;
+	TypePointer commonType;
 };
 
 enum class FunctionCallKind

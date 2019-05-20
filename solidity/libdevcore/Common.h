@@ -39,12 +39,25 @@
 
 #include <libdevcore/vector_ref.h>
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif // defined(__GNUC__)
+
+// See https://github.com/ethereum/libweb3core/commit/90680a8c25bfb48b24371b4abcacde56c181517c
+// See https://svn.boost.org/trac/boost/ticket/11328
+// Bob comment - perhaps we should just HARD FAIL here with Boost-1.58.00?
+// It is quite old now, and requiring end-users to use a newer Boost release is probably not unreasonable.
 #include <boost/version.hpp>
-#if (BOOST_VERSION < 106500)
-#error "Unsupported Boost version. At least 1.65 required."
-#endif
+#if (BOOST_VERSION == 105800)
+	#include "boost_multiprecision_number_compare_bug_workaround.hpp"
+#endif // (BOOST_VERSION == 105800)
 
 #include <boost/multiprecision/cpp_int.hpp>
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif // defined(__GNUC__)
 
 #include <map>
 #include <vector>
@@ -74,7 +87,7 @@ using strings = std::vector<std::string>;
 /// Interprets @a _u as a two's complement signed number and returns the resulting s256.
 inline s256 u2s(u256 _u)
 {
-	static bigint const c_end = bigint(1) << 256;
+	static const bigint c_end = bigint(1) << 256;
 	if (boost::multiprecision::bit_test(_u, 255))
 		return s256(-(c_end - _u));
 	else
@@ -84,10 +97,10 @@ inline s256 u2s(u256 _u)
 /// @returns the two's complement signed representation of the signed number _u.
 inline u256 s2u(s256 _u)
 {
-	static bigint const c_end = bigint(1) << 256;
-	if (_u >= 0)
+	static const bigint c_end = bigint(1) << 256;
+    if (_u >= 0)
 		return u256(_u);
-	else
+    else
 		return u256(c_end + _u);
 }
 

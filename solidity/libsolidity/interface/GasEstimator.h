@@ -24,12 +24,12 @@
 
 #include <liblangutil/EVMVersion.h>
 
-#include <libevmasm/Assembly.h>
 #include <libevmasm/GasMeter.h>
+#include <libevmasm/Assembly.h>
 
-#include <array>
-#include <map>
 #include <vector>
+#include <map>
+#include <array>
 
 namespace dev
 {
@@ -47,7 +47,7 @@ public:
 	using ASTGasConsumptionSelfAccumulated =
 		std::map<ASTNode const*, std::array<GasConsumption, 2>>;
 
-	explicit GasEstimator(langutil::EVMVersion _evmVersion): m_evmVersion(_evmVersion) {}
+	explicit GasEstimator(EVMVersion _evmVersion): m_evmVersion(_evmVersion) {}
 
 	/// Estimates the gas consumption for every assembly item in the given assembly and stores
 	/// it by source location.
@@ -84,7 +84,7 @@ public:
 private:
 	/// @returns the set of AST nodes which are the finest nodes at their location.
 	static std::set<ASTNode const*> finestNodesAtLocation(std::vector<ASTNode const*> const& _roots);
-	langutil::EVMVersion m_evmVersion;
+	EVMVersion m_evmVersion;
 };
 
 }

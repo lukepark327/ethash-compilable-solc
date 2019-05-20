@@ -20,10 +20,10 @@
  * Solidity commandline compiler.
  */
 
-#include <solc/CommandLineInterface.h>
-#include <boost/exception/all.hpp>
+#include "CommandLineInterface.h"
 #include <clocale>
 #include <iostream>
+#include <boost/exception/all.hpp>
 
 using namespace std;
 

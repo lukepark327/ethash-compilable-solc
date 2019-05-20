@@ -23,11 +23,12 @@
 #pragma once
 
 #include <libsolidity/codegen/CompilerContext.h>
-#include <libsolidity/interface/OptimiserSettings.h>
 #include <liblangutil/EVMVersion.h>
+
 #include <libevmasm/Assembly.h>
-#include <functional>
+
 #include <ostream>
+#include <functional>
 
 namespace dev {
 namespace solidity {
@@ -35,8 +36,9 @@ namespace solidity {
 class Compiler
 {
 public:
-	explicit Compiler(langutil::EVMVersion _evmVersion, OptimiserSettings _optimiserSettings):
-		m_optimiserSettings(std::move(_optimiserSettings)),
+	explicit Compiler(EVMVersion _evmVersion = EVMVersion{}, bool _optimize = false, unsigned _runs = 200):
+		m_optimize(_optimize),
+		m_optimizeRuns(_runs),
 		m_runtimeContext(_evmVersion),
 		m_context(_evmVersion, &m_runtimeContext)
 	{ }
@@ -45,15 +47,11 @@ public:
 	/// @arg _metadata contains the to be injected metadata CBOR
 	void compileContract(
 		ContractDefinition const& _contract,
-		std::map<ContractDefinition const*, std::shared_ptr<Compiler const>> const& _otherCompilers,
+		std::map<ContractDefinition const*, eth::Assembly const*> const& _contracts,
 		bytes const& _metadata
 	);
 	/// @returns Entire assembly.
 	eth::Assembly const& assembly() const { return m_context.assembly(); }
-	/// @returns Entire assembly as a shared pointer to non-const.
-	std::shared_ptr<eth::Assembly> assemblyPtr() const { return m_context.assemblyPtr(); }
-	/// @returns Runtime assembly.
-	std::shared_ptr<eth::Assembly> runtimeAssemblyPtr() const;
 	/// @returns The entire assembled object (with constructor).
 	eth::LinkerObject assembledObject() const { return m_context.assembledObject(); }
 	/// @returns Only the runtime object (without constructor).
@@ -78,7 +76,8 @@ public:
 	eth::AssemblyItem functionEntryLabel(FunctionDefinition const& _function) const;
 
 private:
-	OptimiserSettings const m_optimiserSettings;
+	bool const m_optimize;
+	unsigned const m_optimizeRuns;
 	CompilerContext m_runtimeContext;
 	size_t m_runtimeSub = size_t(-1); ///< Identifier of the runtime sub-assembly, if present.
 	CompilerContext m_context;

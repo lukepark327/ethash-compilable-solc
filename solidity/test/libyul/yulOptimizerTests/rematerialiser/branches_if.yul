@@ -1,19 +1,18 @@
 {
-    let a := caller()
-    let b := address()
+    let a := 1
+    let b := 2
     if b { pop(b) b := a }
     let c := b
 }
-// ====
-// step: rematerialiser
 // ----
+// rematerialiser
 // {
-//     let a := caller()
-//     let b := address()
-//     if address()
+//     let a := 1
+//     let b := 2
+//     if 2
 //     {
-//         pop(address())
-//         b := caller()
+//         pop(2)
+//         b := 1
 //     }
 //     let c := b
 // }

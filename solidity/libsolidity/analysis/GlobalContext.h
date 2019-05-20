@@ -22,12 +22,12 @@
 
 #pragma once
 
-#include <libsolidity/ast/ASTForward.h>
-#include <boost/noncopyable.hpp>
-#include <map>
-#include <memory>
 #include <string>
 #include <vector>
+#include <map>
+#include <memory>
+#include <boost/noncopyable.hpp>
+#include <libsolidity/ast/ASTForward.h>
 
 namespace dev
 {

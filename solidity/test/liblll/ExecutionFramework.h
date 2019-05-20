@@ -22,12 +22,13 @@
 
 #pragma once
 
+#include <functional>
 
-#include <test/ExecutionFramework.h>
+#include "../ExecutionFramework.h"
 
 #include <liblll/Compiler.h>
 
-#include <functional>
+using namespace dev::test;
 
 namespace dev
 {
@@ -37,8 +38,9 @@ namespace lll
 namespace test
 {
 
-class LLLExecutionFramework: public dev::test::ExecutionFramework
+class LLLExecutionFramework: public ExecutionFramework
 {
+
 public:
 	LLLExecutionFramework();
 
@@ -47,19 +49,14 @@ public:
 		u256 const& _value = 0,
 		std::string const& _contractName = "",
 		bytes const& _arguments = bytes(),
-		std::map<std::string, dev::test::Address> const& _libraryAddresses = {}
+		std::map<std::string, Address> const& _libraryAddresses = std::map<std::string, Address>()
 	) override
 	{
 		BOOST_REQUIRE(_contractName.empty());
 		BOOST_REQUIRE(_libraryAddresses.empty());
 
 		std::vector<std::string> errors;
-		bytes bytecode = lll::compileLLL(
-			_sourceCode,
-			dev::test::Options::get().evmVersion(),
-			m_optimiserSettings == solidity::OptimiserSettings::standard(),
-			&errors
-		);
+		bytes bytecode = lll::compileLLL(_sourceCode, dev::test::Options::get().evmVersion(), m_optimize, &errors);
 		if (!errors.empty())
 		{
 			for (auto const& error: errors)

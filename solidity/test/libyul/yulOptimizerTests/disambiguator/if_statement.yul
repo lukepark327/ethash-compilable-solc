@@ -1,3 +1,4 @@
+// yul
 {
     { let a:u256, b:u256, c:u256 }
     {
@@ -5,10 +6,8 @@
         if a { let b:bool := a }
     }
 }
-// ====
-// step: disambiguator
-// yul: true
 // ----
+// disambiguator
 // {
 //     {
 //         let a:u256, b:u256, c:u256

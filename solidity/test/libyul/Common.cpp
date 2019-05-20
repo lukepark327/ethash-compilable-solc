@@ -29,8 +29,6 @@
 #include <libyul/AsmParser.h>
 #include <libyul/AsmAnalysis.h>
 #include <libyul/AsmPrinter.h>
-#include <libyul/AssemblyStack.h>
-#include <libyul/backends/evm/EVMDialect.h>
 
 #include <liblangutil/Scanner.h>
 #include <liblangutil/ErrorReporter.h>
@@ -40,42 +38,55 @@
 using namespace std;
 using namespace langutil;
 using namespace yul;
+using namespace dev::solidity;
 
-namespace
+void yul::test::printErrors(ErrorList const& _errors, Scanner const& _scanner)
 {
-shared_ptr<Dialect> defaultDialect(bool _yul)
-{
-	return _yul ? yul::Dialect::yul() : yul::EVMDialect::strictAssemblyForEVM(dev::test::Options::get().evmVersion());
-}
-}
-
-void yul::test::printErrors(ErrorList const& _errors)
-{
-	SourceReferenceFormatter formatter(cout);
+	SourceReferenceFormatter formatter(cout, [&](std::string const&) -> Scanner const& { return _scanner; });
 
 	for (auto const& error: _errors)
-		formatter.printErrorInformation(*error);
+		formatter.printExceptionInformation(
+			*error,
+			(error->type() == Error::Type::Warning) ? "Warning" : "Error"
+		);
 }
 
 
 pair<shared_ptr<Block>, shared_ptr<yul::AsmAnalysisInfo>> yul::test::parse(string const& _source, bool _yul)
 {
-	AssemblyStack stack(
-		dev::test::Options::get().evmVersion(),
-		_yul ? AssemblyStack::Language::Yul : AssemblyStack::Language::StrictAssembly,
-		dev::test::Options::get().optimize ?
-			dev::solidity::OptimiserSettings::standard() :
-			dev::solidity::OptimiserSettings::minimal()
-	);
-	if (!stack.parseAndAnalyze("", _source) || !stack.errors().empty())
-		BOOST_FAIL("Invalid source.");
-	return make_pair(stack.parserResult()->code, stack.parserResult()->analysisInfo);
+	auto flavour = _yul ? yul::AsmFlavour::Yul : yul::AsmFlavour::Strict;
+	ErrorList errors;
+	ErrorReporter errorReporter(errors);
+	auto scanner = make_shared<Scanner>(CharStream(_source, ""));
+	auto parserResult = yul::Parser(errorReporter, flavour).parse(scanner, false);
+	if (parserResult)
+	{
+		BOOST_REQUIRE(errorReporter.errors().empty());
+		auto analysisInfo = make_shared<yul::AsmAnalysisInfo>();
+		yul::AsmAnalyzer analyzer(
+			*analysisInfo,
+			errorReporter,
+			dev::test::Options::get().evmVersion(),
+			boost::none,
+			flavour
+		);
+		if (analyzer.analyze(*parserResult))
+		{
+			BOOST_REQUIRE(errorReporter.errors().empty());
+			return make_pair(parserResult, analysisInfo);
+		}
+	}
+	printErrors(errors, *scanner);
+	BOOST_FAIL("Invalid source.");
+
+	// Unreachable.
+	return {};
 }
 
 yul::Block yul::test::disambiguate(string const& _source, bool _yul)
 {
 	auto result = parse(_source, _yul);
-	return boost::get<Block>(Disambiguator(*defaultDialect(_yul), *result.second, {})(*result.first));
+	return boost::get<Block>(Disambiguator(*result.second, {})(*result.first));
 }
 
 string yul::test::format(string const& _source, bool _yul)

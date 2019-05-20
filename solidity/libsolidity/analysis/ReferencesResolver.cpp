@@ -1,18 +1,18 @@
 /*
-	This file is part of solidity.
+    This file is part of solidity.
 
-	solidity is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+    solidity is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-	solidity is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    solidity is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-	You should have received a copy of the GNU General Public License
-	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU General Public License
+    along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 /**
  * @author Christian <c@ethdev.com>
@@ -21,16 +21,12 @@
  */
 
 #include <libsolidity/analysis/ReferencesResolver.h>
+#include <libsolidity/ast/AST.h>
 #include <libsolidity/analysis/NameAndTypeResolver.h>
 #include <libsolidity/analysis/ConstantEvaluator.h>
-#include <libsolidity/ast/AST.h>
-#include <libsolidity/ast/TypeProvider.h>
-
 #include <libyul/AsmAnalysis.h>
 #include <libyul/AsmAnalysisInfo.h>
 #include <libyul/AsmData.h>
-#include <libyul/backends/evm/EVMDialect.h>
-
 #include <liblangutil/ErrorReporter.h>
 #include <liblangutil/Exceptions.h>
 
@@ -121,7 +117,7 @@ bool ReferencesResolver::visit(ElementaryTypeName const& _typeName)
 {
 	if (!_typeName.annotation().type)
 	{
-		_typeName.annotation().type = TypeProvider::fromElementaryTypeName(_typeName.typeName());
+		_typeName.annotation().type = Type::fromElementaryTypeName(_typeName.typeName());
 		if (_typeName.stateMutability().is_initialized())
 		{
 			// for non-address types this was already caught by the parser
@@ -129,10 +125,8 @@ bool ReferencesResolver::visit(ElementaryTypeName const& _typeName)
 			switch(*_typeName.stateMutability())
 			{
 				case StateMutability::Payable:
-					_typeName.annotation().type = TypeProvider::payableAddress();
-					break;
 				case StateMutability::NonPayable:
-					_typeName.annotation().type = TypeProvider::address();
+					_typeName.annotation().type = make_shared<AddressType>(*_typeName.stateMutability());
 					break;
 				default:
 					m_errorReporter.typeError(
@@ -182,14 +176,14 @@ void ReferencesResolver::endVisit(UserDefinedTypeName const& _typeName)
 	_typeName.annotation().referencedDeclaration = declaration;
 
 	if (StructDefinition const* structDef = dynamic_cast<StructDefinition const*>(declaration))
-		_typeName.annotation().type = TypeProvider::structType(*structDef, DataLocation::Storage);
+		_typeName.annotation().type = make_shared<StructType>(*structDef);
 	else if (EnumDefinition const* enumDef = dynamic_cast<EnumDefinition const*>(declaration))
-		_typeName.annotation().type = TypeProvider::enumType(*enumDef);
+		_typeName.annotation().type = make_shared<EnumType>(*enumDef);
 	else if (ContractDefinition const* contract = dynamic_cast<ContractDefinition const*>(declaration))
-		_typeName.annotation().type = TypeProvider::contract(*contract);
+		_typeName.annotation().type = make_shared<ContractType>(*contract);
 	else
 	{
-		_typeName.annotation().type = TypeProvider::emptyTuple();
+		_typeName.annotation().type = make_shared<TupleType>();
 		typeError(_typeName.location(), "Name has to refer to a struct, enum or contract.");
 	}
 }
@@ -216,14 +210,14 @@ void ReferencesResolver::endVisit(FunctionTypeName const& _typeName)
 		for (auto const& t: _typeName.parameterTypes() + _typeName.returnParameterTypes())
 		{
 			solAssert(t->annotation().type, "Type not set for parameter.");
-			if (!t->annotation().type->interfaceType(false).get())
+			if (!t->annotation().type->canBeUsedExternally(false))
 			{
 				fatalTypeError(t->location(), "Internal type cannot be used for external function type.");
 				return;
 			}
 		}
 
-	_typeName.annotation().type = TypeProvider::function(_typeName);
+	_typeName.annotation().type = make_shared<FunctionType>(_typeName);
 }
 
 void ReferencesResolver::endVisit(Mapping const& _typeName)
@@ -231,10 +225,10 @@ void ReferencesResolver::endVisit(Mapping const& _typeName)
 	TypePointer keyType = _typeName.keyType().annotation().type;
 	TypePointer valueType = _typeName.valueType().annotation().type;
 	// Convert key type to memory.
-	keyType = TypeProvider::withLocationIfReference(DataLocation::Memory, keyType);
+	keyType = ReferenceType::copyForLocationIfReference(DataLocation::Memory, keyType);
 	// Convert value type to storage reference.
-	valueType = TypeProvider::withLocationIfReference(DataLocation::Storage, valueType);
-	_typeName.annotation().type = TypeProvider::mapping(keyType, valueType);
+	valueType = ReferenceType::copyForLocationIfReference(DataLocation::Storage, valueType);
+	_typeName.annotation().type = make_shared<MappingType>(keyType, valueType);
 }
 
 void ReferencesResolver::endVisit(ArrayTypeName const& _typeName)
@@ -249,10 +243,10 @@ void ReferencesResolver::endVisit(ArrayTypeName const& _typeName)
 		fatalTypeError(_typeName.baseType().location(), "Illegal base type of storage size zero for array.");
 	if (Expression const* length = _typeName.length())
 	{
-		TypePointer& lengthTypeGeneric = length->annotation().type;
+		TypePointer lengthTypeGeneric = length->annotation().type;
 		if (!lengthTypeGeneric)
 			lengthTypeGeneric = ConstantEvaluator(m_errorReporter).evaluate(*length);
-		RationalNumberType const* lengthType = dynamic_cast<RationalNumberType const*>(lengthTypeGeneric);
+		RationalNumberType const* lengthType = dynamic_cast<RationalNumberType const*>(lengthTypeGeneric.get());
 		if (!lengthType || !lengthType->mobileType())
 			fatalTypeError(length->location(), "Invalid array length, expected integer literal or constant expression.");
 		else if (lengthType->isZero())
@@ -262,10 +256,10 @@ void ReferencesResolver::endVisit(ArrayTypeName const& _typeName)
 		else if (lengthType->isNegative())
 			fatalTypeError(length->location(), "Array with negative length specified.");
 		else
-			_typeName.annotation().type = TypeProvider::array(DataLocation::Storage, baseType, lengthType->literalValue(nullptr));
+			_typeName.annotation().type = make_shared<ArrayType>(DataLocation::Storage, baseType, lengthType->literalValue(nullptr));
 	}
 	else
-		_typeName.annotation().type = TypeProvider::array(DataLocation::Storage, baseType);
+		_typeName.annotation().type = make_shared<ArrayType>(DataLocation::Storage, baseType);
 }
 
 bool ReferencesResolver::visit(InlineAssembly const& _inlineAssembly)
@@ -301,13 +295,11 @@ bool ReferencesResolver::visit(InlineAssembly const& _inlineAssembly)
 			}
 			declarations = m_resolver.nameFromCurrentScope(realName);
 		}
-		if (declarations.size() > 1)
+		if (declarations.size() != 1)
 		{
 			declarationError(_identifier.location, "Multiple matching identifiers. Resolving overloaded identifiers is not supported.");
 			return size_t(-1);
 		}
-		else if (declarations.size() == 0)
-			return size_t(-1);
 		if (auto var = dynamic_cast<VariableDeclaration const*>(declarations.front()))
 			if (var->isLocalVariable() && _crossesFunctionBoundary)
 			{
@@ -324,13 +316,7 @@ bool ReferencesResolver::visit(InlineAssembly const& _inlineAssembly)
 	// We use the latest EVM version because we will re-run it anyway.
 	yul::AsmAnalysisInfo analysisInfo;
 	boost::optional<Error::Type> errorTypeForLoose = Error::Type::SyntaxError;
-	yul::AsmAnalyzer(
-		analysisInfo,
-		errorsIgnored,
-		errorTypeForLoose,
-		yul::EVMDialect::looseAssemblyForEVM(EVMVersion{}),
-		resolver
-	).analyze(_inlineAssembly.operations());
+	yul::AsmAnalyzer(analysisInfo, errorsIgnored, EVMVersion(), errorTypeForLoose, yul::AsmFlavour::Loose, resolver).analyze(_inlineAssembly.operations());
 	return false;
 }
 
@@ -439,10 +425,10 @@ void ReferencesResolver::endVisit(VariableDeclaration const& _variable)
 		}
 
 	TypePointer type = _variable.typeName()->annotation().type;
-	if (auto ref = dynamic_cast<ReferenceType const*>(type))
+	if (auto ref = dynamic_cast<ReferenceType const*>(type.get()))
 	{
 		bool isPointer = !_variable.isStateVariable();
-		type = TypeProvider::withLocation(ref, typeLoc, isPointer);
+		type = ref->copyForLocation(typeLoc, isPointer);
 	}
 
 	_variable.annotation().type = type;

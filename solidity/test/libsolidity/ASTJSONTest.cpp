@@ -17,7 +17,6 @@
 
 #include <test/libsolidity/ASTJSONTest.h>
 #include <test/Options.h>
-#include <libdevcore/AnsiColorized.h>
 #include <libsolidity/ast/ASTJsonConverter.h>
 #include <libsolidity/interface/CompilerStack.h>
 #include <boost/algorithm/string.hpp>
@@ -27,10 +26,10 @@
 #include <memory>
 #include <stdexcept>
 
-using namespace dev::solidity;
-using namespace dev::solidity::test;
-using namespace dev::formatting;
 using namespace dev;
+using namespace solidity;
+using namespace dev::solidity::test;
+using namespace dev::solidity::test::formatting;
 using namespace std;
 namespace fs = boost::filesystem;
 using namespace boost::unit_test;
@@ -92,14 +91,13 @@ bool ASTJSONTest::run(ostream& _stream, string const& _linePrefix, bool const _f
 {
 	CompilerStack c;
 
-	StringMap sources;
 	map<string, unsigned> sourceIndices;
 	for (size_t i = 0; i < m_sources.size(); i++)
 	{
-		sources[m_sources[i].first] = m_sources[i].second;
+		c.addSource(m_sources[i].first, m_sources[i].second);
 		sourceIndices[m_sources[i].first] = i + 1;
 	}
-	c.setSources(sources);
+
 	c.setEVMVersion(dev::test::Options::get().evmVersion());
 	c.parseAndAnalyze();
 
@@ -118,7 +116,7 @@ bool ASTJSONTest::run(ostream& _stream, string const& _linePrefix, bool const _f
 	if (m_expectation != m_result)
 	{
 		string nextIndentLevel = _linePrefix + "  ";
-		AnsiColorized(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Expected result:" << endl;
+		FormattedScope(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Expected result:" << endl;
 		{
 			istringstream stream(m_expectation);
 			string line;
@@ -126,7 +124,7 @@ bool ASTJSONTest::run(ostream& _stream, string const& _linePrefix, bool const _f
 				_stream << nextIndentLevel << line << endl;
 		}
 		_stream << endl;
-		AnsiColorized(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Obtained result:" << endl;
+		FormattedScope(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Obtained result:" << endl;
 		{
 			istringstream stream(m_result);
 			string line;
@@ -150,7 +148,7 @@ bool ASTJSONTest::run(ostream& _stream, string const& _linePrefix, bool const _f
 	if (m_expectationLegacy != m_resultLegacy)
 	{
 		string nextIndentLevel = _linePrefix + "  ";
-		AnsiColorized(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Expected result (legacy):" << endl;
+		FormattedScope(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Expected result (legacy):" << endl;
 		{
 			istringstream stream(m_expectationLegacy);
 			string line;
@@ -158,7 +156,7 @@ bool ASTJSONTest::run(ostream& _stream, string const& _linePrefix, bool const _f
 				_stream << nextIndentLevel << line << endl;
 		}
 		_stream << endl;
-		AnsiColorized(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Obtained result (legacy):" << endl;
+		FormattedScope(_stream, _formatted, {BOLD, CYAN}) << _linePrefix << "Obtained result (legacy):" << endl;
 		{
 			istringstream stream(m_resultLegacy);
 			string line;

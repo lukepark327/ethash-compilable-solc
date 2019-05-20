@@ -21,10 +21,10 @@
 
 #pragma once
 
-#include <liblll/Exceptions.h>
+#include <libdevcore/Common.h>
 #include <libevmasm/Instruction.h>
 #include <libevmasm/Assembly.h>
-#include <libdevcore/Common.h>
+#include "Exceptions.h"
 
 namespace boost { namespace spirit { class utree; } }
 namespace sp = boost::spirit;
@@ -41,10 +41,10 @@ class CodeFragment
 public:
 	using ReadCallback = std::function<std::string(std::string const&)>;
 
-	CodeFragment() = default;
+	CodeFragment() {}
 	CodeFragment(sp::utree const& _t, CompilerState& _s, ReadCallback const& _readFile, bool _allowASM = false);
 
-	static CodeFragment compile(std::string _src, CompilerState& _s, ReadCallback const& _readFile);
+	static CodeFragment compile(std::string const& _src, CompilerState& _s, ReadCallback const& _readFile);
 
 	/// Consolidates data and compiles code.
 	eth::Assembly& assembly(CompilerState const& _cs) { finalise(_cs); return m_asm; }
@@ -65,7 +65,8 @@ private:
 	ReadCallback m_readFile;
 };
 
-static CodeFragment const NullCodeFragment;
+static const CodeFragment NullCodeFragment;
 
 }
 }
+

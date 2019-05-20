@@ -22,38 +22,39 @@
 		f(100)
 	}
 }
-// ====
-// step: fullInliner
 // ----
+// fullInliner
 // {
 //     {
-//         let x_8 := 100
-//         mstore(0, x_8)
-//         mstore(7, h())
-//         g(10)
-//         mstore(1, x_8)
+//         {
+//             let f_x := 100
+//             mstore(0, f_x)
+//             mstore(7, h())
+//             g(10)
+//             mstore(1, f_x)
+//         }
 //     }
 //     function f(x)
 //     {
 //         mstore(0, x)
-//         let t_20 := 0
-//         t_20 := 2
-//         mstore(7, t_20)
-//         let x_1_21 := 10
-//         let x_14_23 := 1
-//         mstore(0, x_14_23)
+//         let h_t
+//         h_t := 2
+//         mstore(7, h_t)
+//         let g_x_1 := 10
+//         let g_f_x_8 := 1
+//         mstore(0, g_f_x_8)
 //         mstore(7, h())
 //         g(10)
-//         mstore(1, x_14_23)
+//         mstore(1, g_f_x_8)
 //         mstore(1, x)
 //     }
 //     function g(x_1)
 //     {
-//         let x_14 := 1
-//         mstore(0, x_14)
+//         let f_x_8 := 1
+//         mstore(0, f_x_8)
 //         mstore(7, h())
 //         g(10)
-//         mstore(1, x_14)
+//         mstore(1, f_x_8)
 //     }
 //     function h() -> t
 //     {

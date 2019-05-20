@@ -1,23 +1,21 @@
 {
-    let a := caller()
-    pop(a)
-    for {  } a { pop(a) } {
+    let a := 1
+    for { pop(a) } a { pop(a) } {
         pop(a)
     }
 }
-// ====
-// step: rematerialiser
 // ----
+// rematerialiser
 // {
-//     let a := caller()
-//     pop(caller())
+//     let a := 1
 //     for {
+//         pop(1)
 //     }
-//     caller()
+//     1
 //     {
-//         pop(caller())
+//         pop(1)
 //     }
 //     {
-//         pop(caller())
+//         pop(1)
 //     }
 // }

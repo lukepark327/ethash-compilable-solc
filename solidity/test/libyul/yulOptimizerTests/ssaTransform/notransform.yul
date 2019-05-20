@@ -6,9 +6,8 @@
   mstore(c, 0)
   c := add(a, b)
 }
-// ====
-// step: ssaTransform
 // ----
+// ssaTransform
 // {
 //     let a := 1
 //     let b := add(a, 2)

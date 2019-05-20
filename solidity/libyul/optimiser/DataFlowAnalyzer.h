@@ -30,22 +30,17 @@
 
 namespace yul
 {
-struct Dialect;
 
 /**
  * Base class to perform data flow analysis during AST walks.
  * Tracks assignments and is used as base class for both Rematerialiser and
  * Common Subexpression Eliminator.
  *
- * A special zero constant expression is used for the default value of variables.
- *
- * Prerequisite: Disambiguator, ForLoopInitRewriter.
+ * Prerequisite: Disambiguator
  */
 class DataFlowAnalyzer: public ASTModifier
 {
 public:
-	explicit DataFlowAnalyzer(Dialect const& _dialect): m_dialect(_dialect) {}
-
 	using ASTModifier::operator();
 	void operator()(Assignment& _assignment) override;
 	void operator()(VariableDeclaration& _varDecl) override;
@@ -87,7 +82,6 @@ protected:
 	};
 	/// List of scopes.
 	std::vector<Scope> m_variableScopes;
-	Dialect const& m_dialect;
 };
 
 }

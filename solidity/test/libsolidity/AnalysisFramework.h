@@ -35,8 +35,8 @@ namespace solidity
 
 class Type;
 class FunctionType;
-using TypePointer = Type const*;
-using FunctionTypePointer = FunctionType const*;
+using TypePointer = std::shared_ptr<Type const>;
+using FunctionTypePointer = std::shared_ptr<FunctionType const>;
 
 namespace test
 {
@@ -71,25 +71,7 @@ protected:
 	langutil::ErrorList filterErrors(langutil::ErrorList const& _errorList, bool _includeWarnings) const;
 
 	std::vector<std::string> m_warningsToFilter = {"This is a pre-release compiler version"};
-
-	/// @returns reference to lazy-instanciated CompilerStack.
-	dev::solidity::CompilerStack& compiler()
-	{
-		if (!m_compiler)
-			m_compiler = std::make_unique<dev::solidity::CompilerStack>();
-		return *m_compiler;
-	}
-
-	/// @returns reference to lazy-instanciated CompilerStack.
-	dev::solidity::CompilerStack const& compiler() const
-	{
-		if (!m_compiler)
-			m_compiler = std::make_unique<dev::solidity::CompilerStack>();
-		return *m_compiler;
-	}
-
-private:
-	mutable std::unique_ptr<dev::solidity::CompilerStack> m_compiler;
+	dev::solidity::CompilerStack m_compiler;
 };
 
 // Asserts that the compilation down to typechecking

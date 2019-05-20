@@ -17,35 +17,33 @@
 
 #pragma once
 
-#include <libsolidity/ast/ASTVisitor.h>
-
-#include <vector>
+#include <map>
 #include <set>
+#include <vector>
 
 namespace dev
 {
 namespace solidity
 {
 
+class ASTNode;
+class VariableDeclaration;
+
 /**
- * This class computes information about which variables are modified in a certain subtree.
+ * This class collects information about which local variables of value type
+ * are modified in which parts of the AST.
  */
-class VariableUsage: private ASTConstVisitor
+class VariableUsage
 {
 public:
-	/// @param _outerCallstack the current callstack in the callers context.
-	std::set<VariableDeclaration const*> touchedVariables(ASTNode const& _node, std::vector<FunctionDefinition const*> const& _outerCallstack);
+	explicit VariableUsage(ASTNode const& _node);
+
+	std::vector<VariableDeclaration const*> touchedVariables(ASTNode const& _node) const;
 
 private:
-	void endVisit(Identifier const& _node) override;
-	void endVisit(FunctionCall const& _node) override;
-	bool visit(FunctionDefinition const& _node) override;
-	void endVisit(FunctionDefinition const& _node) override;
-	void endVisit(ModifierInvocation const& _node) override;
-	void endVisit(PlaceholderStatement const& _node) override;
-
-	std::set<VariableDeclaration const*> m_touchedVariables;
-	std::vector<FunctionDefinition const*> m_functionPath;
+	// Variable touched by a specific AST node.
+	std::map<ASTNode const*, VariableDeclaration const*> m_touchedVariable;
+	std::map<ASTNode const*, std::vector<ASTNode const*>> m_children;
 };
 
 }

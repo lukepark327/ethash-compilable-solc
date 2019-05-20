@@ -20,24 +20,22 @@
 
 #include <libyul/optimiser/SimplificationRules.h>
 
+#include <libyul/optimiser/Utilities.h>
 #include <libyul/optimiser/ASTCopier.h>
 #include <libyul/optimiser/Semantics.h>
 #include <libyul/optimiser/SyntacticalEquality.h>
 #include <libyul/AsmData.h>
-#include <libyul/Utilities.h>
 
 #include <libevmasm/RuleList.h>
 
 using namespace std;
 using namespace dev;
-using namespace dev::eth;
 using namespace langutil;
 using namespace yul;
 
 
-SimplificationRule<yul::Pattern> const* SimplificationRules::findFirstMatch(
+SimplificationRule<Pattern> const* SimplificationRules::findFirstMatch(
 	Expression const& _expr,
-	Dialect const& _dialect,
 	map<YulString, Expression const*> const& _ssaValues
 )
 {
@@ -51,16 +49,15 @@ SimplificationRule<yul::Pattern> const* SimplificationRules::findFirstMatch(
 	for (auto const& rule: rules.m_rules[uint8_t(instruction.instruction)])
 	{
 		rules.resetMatchGroups();
-		if (rule.pattern.matches(_expr, _dialect, _ssaValues))
-			if (!rule.feasible || rule.feasible())
-				return &rule;
+		if (rule.pattern.matches(_expr, _ssaValues))
+			return &rule;
 	}
 	return nullptr;
 }
 
 bool SimplificationRules::isInitialized() const
 {
-	return !m_rules[uint8_t(dev::eth::Instruction::ADD)].empty();
+	return !m_rules[uint8_t(solidity::Instruction::ADD)].empty();
 }
 
 void SimplificationRules::addRules(vector<SimplificationRule<Pattern>> const& _rules)
@@ -94,7 +91,7 @@ SimplificationRules::SimplificationRules()
 	assertThrow(isInitialized(), OptimizerException, "Rule list not properly initialized.");
 }
 
-yul::Pattern::Pattern(dev::eth::Instruction _instruction, vector<Pattern> const& _arguments):
+Pattern::Pattern(solidity::Instruction _instruction, vector<Pattern> const& _arguments):
 	m_kind(PatternKind::Operation),
 	m_instruction(_instruction),
 	m_arguments(_arguments)
@@ -107,11 +104,7 @@ void Pattern::setMatchGroup(unsigned _group, map<unsigned, Expression const*>& _
 	m_matchGroups = &_matchGroups;
 }
 
-bool Pattern::matches(
-	Expression const& _expr,
-	Dialect const& _dialect,
-	map<YulString, Expression const*> const& _ssaValues
-) const
+bool Pattern::matches(Expression const& _expr, map<YulString, Expression const*> const& _ssaValues) const
 {
 	Expression const* expr = &_expr;
 
@@ -121,8 +114,7 @@ bool Pattern::matches(
 	{
 		YulString varName = boost::get<Identifier>(_expr).name;
 		if (_ssaValues.count(varName))
-			if (Expression const* new_expr = _ssaValues.at(varName))
-				expr = new_expr;
+			expr = _ssaValues.at(varName);
 	}
 	assertThrow(expr, OptimizerException, "");
 
@@ -146,7 +138,7 @@ bool Pattern::matches(
 			return false;
 		assertThrow(m_arguments.size() == instr.arguments.size(), OptimizerException, "");
 		for (size_t i = 0; i < m_arguments.size(); ++i)
-			if (!m_arguments[i].matches(instr.arguments.at(i), _dialect, _ssaValues))
+			if (!m_arguments[i].matches(instr.arguments.at(i), _ssaValues))
 				return false;
 	}
 	else
@@ -173,8 +165,8 @@ bool Pattern::matches(
 			Expression const* firstMatch = (*m_matchGroups)[m_matchGroup];
 			assertThrow(firstMatch, OptimizerException, "Match set but to null.");
 			return
-				SyntacticallyEqual{}(*firstMatch, _expr) &&
-				MovableChecker(_dialect, _expr).movable();
+				SyntacticalEqualityChecker::equal(*firstMatch, _expr) &&
+				MovableChecker(_expr).movable();
 		}
 		else if (m_kind == PatternKind::Any)
 			(*m_matchGroups)[m_matchGroup] = &_expr;
@@ -188,7 +180,7 @@ bool Pattern::matches(
 	return true;
 }
 
-dev::eth::Instruction Pattern::instruction() const
+solidity::Instruction Pattern::instruction() const
 {
 	assertThrow(m_kind == PatternKind::Operation, OptimizerException, "");
 	return m_instruction;
@@ -215,7 +207,10 @@ Expression Pattern::toExpression(SourceLocation const& _location) const
 
 u256 Pattern::d() const
 {
-	return valueOfNumberLiteral(boost::get<Literal>(matchGroupValue()));
+	Literal const& literal = boost::get<Literal>(matchGroupValue());
+	assertThrow(literal.kind == LiteralKind::Number, OptimizerException, "");
+	assertThrow(isValidDecimal(literal.value.str()) || isValidHex(literal.value.str()), OptimizerException, "");
+	return u256(literal.value.str());
 }
 
 Expression const& Pattern::matchGroupValue() const

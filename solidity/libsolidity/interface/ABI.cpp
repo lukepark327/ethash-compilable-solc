@@ -1,42 +1,29 @@
 /*
-	This file is part of solidity.
+        This file is part of solidity.
 
-	solidity is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+        solidity is free software: you can redistribute it and/or modify
+        it under the terms of the GNU General Public License as published by
+        the Free Software Foundation, either version 3 of the License, or
+        (at your option) any later version.
 
-	solidity is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+        solidity is distributed in the hope that it will be useful,
+        but WITHOUT ANY WARRANTY; without even the implied warranty of
+        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+        GNU General Public License for more details.
 
-	You should have received a copy of the GNU General Public License
-	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
+        You should have received a copy of the GNU General Public License
+        along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 /**
  * Utilities to handle the Contract ABI (https://github.com/ethereum/wiki/wiki/Ethereum-Contract-ABI)
  */
 
 #include <libsolidity/interface/ABI.h>
-
 #include <libsolidity/ast/AST.h>
 
 using namespace std;
 using namespace dev;
 using namespace dev::solidity;
-
-namespace
-{
-bool anyDataStoredInStorage(TypePointers const& _pointers)
-{
-	for (TypePointer const& pointer: _pointers)
-		if (pointer->dataStoredIn(DataLocation::Storage))
-			return true;
-
-	return false;
-}
-}
 
 Json::Value ABI::generate(ContractDefinition const& _contractDef)
 {
@@ -44,13 +31,6 @@ Json::Value ABI::generate(ContractDefinition const& _contractDef)
 
 	for (auto it: _contractDef.interfaceFunctions())
 	{
-		if (
-			_contractDef.isLibrary() &&
-			(it.second->stateMutability() > StateMutability::View ||
-			anyDataStoredInStorage(it.second->parameterTypes() + it.second->returnParameterTypes()))
-		)
-			continue;
-
 		auto externalFunctionType = it.second->interfaceFunctionType();
 		solAssert(!!externalFunctionType, "");
 		Json::Value method;
@@ -107,9 +87,9 @@ Json::Value ABI::generate(ContractDefinition const& _contractDef)
 		for (auto const& p: it->parameters())
 		{
 			auto type = p->annotation().type->interfaceType(false);
-			solAssert(type.get(), "");
+			solAssert(type, "");
 			Json::Value input;
-			auto param = formatType(p->name(), *type.get(), false);
+			auto param = formatType(p->name(), *type, false);
 			param["indexed"] = p->isIndexed();
 			params.append(param);
 		}
@@ -173,8 +153,8 @@ Json::Value ABI::formatType(string const& _name, Type const& _type, bool _forLib
 		{
 			solAssert(member.type, "");
 			auto t = member.type->interfaceType(_forLibrary);
-			solAssert(t.get(), "");
-			ret["components"].append(formatType(member.name, *t.get(), _forLibrary));
+			solAssert(t, "");
+			ret["components"].append(formatType(member.name, *t, _forLibrary));
 		}
 	}
 	else

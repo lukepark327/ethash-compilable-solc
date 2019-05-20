@@ -1,18 +1,18 @@
 /*
-	This file is part of solidity.
+    This file is part of solidity.
 
-	solidity is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+    solidity is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-	solidity is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    solidity is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-	You should have received a copy of the GNU General Public License
-	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU General Public License
+    along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 /**
  * @author Lefteris Karapetsas <lefteris@ethdev.com>
@@ -38,6 +38,10 @@ namespace langutil
  */
 struct SourceLocation
 {
+	SourceLocation(): start(-1), end(-1), source{nullptr} { }
+	SourceLocation(int _start, int _end, std::shared_ptr<CharStream> _source):
+		start(_start), end(_end), source{std::move(_source)} { }
+
 	bool operator==(SourceLocation const& _other) const
 	{
 		return source.get() == _other.source.get() && start == _other.start && end == _other.end;
@@ -49,28 +53,8 @@ struct SourceLocation
 
 	bool isEmpty() const { return start == -1 && end == -1; }
 
-	/// @returns the smallest SourceLocation that contains both @param _a and @param _b.
-	/// Assumes that @param _a and @param _b refer to the same source (exception: if the source of either one
-	/// is unset, the source of the other will be used for the result, even if that is unset as well).
-	/// Invalid start and end positions (with value of -1) are ignored (if start or end are -1 for both @param _a and
-	/// @param _b, then start resp. end of the result will be -1 as well).
-	static SourceLocation smallestCovering(SourceLocation _a, SourceLocation const& _b)
-	{
-		if (!_a.source)
-			_a.source = _b.source;
-
-		if (_a.start < 0)
-			_a.start = _b.start;
-		else if (_b.start >= 0 && _b.start < _a.start)
-			_a.start = _b.start;
-		if (_b.end > _a.end)
-			_a.end = _b.end;
-
-		return _a;
-	}
-
-	int start = -1;
-	int end = -1;
+	int start;
+	int end;
 	std::shared_ptr<CharStream> source;
 };
 

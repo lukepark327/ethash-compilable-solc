@@ -140,8 +140,6 @@ namespace langutil
 	T(Dec, "--", 0)                                                    \
 	K(Delete, "delete", 0)                                             \
 	\
-	/* Inline Assembly Operators */                                    \
-	T(AssemblyAssign, ":=", 2)                                         \
 	/* Keywords */                                                     \
 	K(Anonymous, "anonymous", 0)                                       \
 	K(As, "as", 0)                                                     \
@@ -182,7 +180,6 @@ namespace langutil
 	K(CallData, "calldata", 0)                                         \
 	K(Struct, "struct", 0)                                             \
 	K(Throw, "throw", 0)                                               \
-	K(Type, "type", 0)                                                 \
 	K(Using, "using", 0)                                               \
 	K(Var, "var", 0)                                                   \
 	K(View, "view", 0)                                                 \
@@ -259,6 +256,7 @@ namespace langutil
 	K(Supports, "supports", 0)                                         \
 	K(Switch, "switch", 0)                                             \
 	K(Try, "try", 0)                                                   \
+	K(Type, "type", 0)                                                 \
 	K(Typedef, "typedef", 0)                                           \
 	K(TypeOf, "typeof", 0)                                             \
 	K(Unchecked, "unchecked", 0)                                       \
@@ -289,7 +287,7 @@ namespace TokenTraits
 	constexpr bool isAssignmentOp(Token tok) { return Token::Assign <= tok && tok <= Token::AssignMod; }
 	constexpr bool isBinaryOp(Token op) { return Token::Comma <= op && op <= Token::Exp; }
 	constexpr bool isCommutativeOp(Token op) { return op == Token::BitOr || op == Token::BitXor || op == Token::BitAnd ||
-		op == Token::Add || op == Token::Mul || op == Token::Equal || op == Token::NotEqual; }
+		 op == Token::Add || op == Token::Mul || op == Token::Equal || op == Token::NotEqual; }
 	constexpr bool isArithmeticOp(Token op) { return Token::Add <= op && op <= Token::Exp; }
 	constexpr bool isCompareOp(Token op) { return Token::Equal <= op && op <= Token::GreaterThanOrEqual; }
 

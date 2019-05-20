@@ -85,5 +85,7 @@ contract C {
 }
 // ----
 // Warning: (1005-1019): This declaration shadows an existing declaration.
+// Warning: (90-116): Function state mutability can be restricted to pure
+// Warning: (121-147): Function state mutability can be restricted to pure
 // Warning: (257-642): Function state mutability can be restricted to pure
 // Warning: (647-1227): Function state mutability can be restricted to pure

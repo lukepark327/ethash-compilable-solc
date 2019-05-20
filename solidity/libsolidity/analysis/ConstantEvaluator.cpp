@@ -21,9 +21,7 @@
  */
 
 #include <libsolidity/analysis/ConstantEvaluator.h>
-
 #include <libsolidity/ast/AST.h>
-#include <libsolidity/ast/TypeProvider.h>
 #include <liblangutil/ErrorReporter.h>
 
 using namespace std;
@@ -43,7 +41,7 @@ void ConstantEvaluator::endVisit(BinaryOperation const& _operation)
 	auto right = type(_operation.rightExpression());
 	if (left && right)
 	{
-		TypePointer commonType = left->binaryOperatorResult(_operation.getOperator(), right);
+		auto commonType = left->binaryOperatorResult(_operation.getOperator(), right);
 		if (!commonType)
 			m_errorReporter.fatalTypeError(
 				_operation.location(),
@@ -57,7 +55,7 @@ void ConstantEvaluator::endVisit(BinaryOperation const& _operation)
 		setType(
 			_operation,
 			TokenTraits::isCompareOp(_operation.getOperator()) ?
-			TypeProvider::boolean() :
+			make_shared<BoolType>() :
 			commonType
 		);
 	}
@@ -65,7 +63,7 @@ void ConstantEvaluator::endVisit(BinaryOperation const& _operation)
 
 void ConstantEvaluator::endVisit(Literal const& _literal)
 {
-	setType(_literal, TypeProvider::forLiteral(_literal));
+	setType(_literal, Type::forLiteral(_literal));
 }
 
 void ConstantEvaluator::endVisit(Identifier const& _identifier)

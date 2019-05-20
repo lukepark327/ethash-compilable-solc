@@ -3,9 +3,8 @@
         a := add(a, 1)
     }
 }
-// ====
-// step: blockFlattener
 // ----
+// blockFlattener
 // {
 //     for {
 //         let a := 1

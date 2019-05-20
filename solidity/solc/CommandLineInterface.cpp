@@ -20,36 +20,31 @@
  * @date 2014
  * Solidity command line interface.
  */
-#include <solc/CommandLineInterface.h>
+#include "CommandLineInterface.h"
 
 #include "solidity/BuildInfo.h"
 #include "license.h"
 
 #include <libsolidity/interface/Version.h>
+#include <liblangutil/Scanner.h>
 #include <libsolidity/parsing/Parser.h>
 #include <libsolidity/ast/ASTPrinter.h>
 #include <libsolidity/ast/ASTJsonConverter.h>
 #include <libsolidity/analysis/NameAndTypeResolver.h>
+#include <liblangutil/Exceptions.h>
 #include <libsolidity/interface/CompilerStack.h>
 #include <libsolidity/interface/StandardCompiler.h>
+#include <liblangutil/SourceReferenceFormatter.h>
 #include <libsolidity/interface/GasEstimator.h>
-
-#include <libyul/AssemblyStack.h>
+#include <libsolidity/interface/AssemblyStack.h>
 
 #include <libevmasm/Instruction.h>
 #include <libevmasm/GasMeter.h>
-
-#include <liblangutil/Exceptions.h>
-#include <liblangutil/Scanner.h>
-#include <liblangutil/SourceReferenceFormatter.h>
-#include <liblangutil/SourceReferenceFormatterHuman.h>
 
 #include <libdevcore/Common.h>
 #include <libdevcore/CommonData.h>
 #include <libdevcore/CommonIO.h>
 #include <libdevcore/JSON.h>
-
-#include <memory>
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -62,14 +57,9 @@
 #else // unix
 	#include <unistd.h>
 #endif
-
 #include <string>
 #include <iostream>
 #include <fstream>
-
-#if !defined(STDERR_FILENO)
-	#define STDERR_FILENO 2
-#endif
 
 using namespace std;
 using namespace langutil;
@@ -121,7 +111,6 @@ static string const g_strHelp = "help";
 static string const g_strInputFile = "input-file";
 static string const g_strInterface = "interface";
 static string const g_strYul = "yul";
-static string const g_strIR = "ir";
 static string const g_strLicense = "license";
 static string const g_strLibraries = "libraries";
 static string const g_strLink = "link";
@@ -133,7 +122,6 @@ static string const g_strNatspecUser = "userdoc";
 static string const g_strOpcodes = "opcodes";
 static string const g_strOptimize = "optimize";
 static string const g_strOptimizeRuns = "optimize-runs";
-static string const g_strOptimizeYul = "optimize-yul";
 static string const g_strOutputDir = "output-dir";
 static string const g_strOverwrite = "overwrite";
 static string const g_strSignatureHashes = "hashes";
@@ -146,9 +134,6 @@ static string const g_strStrictAssembly = "strict-assembly";
 static string const g_strPrettyJson = "pretty-json";
 static string const g_strVersion = "version";
 static string const g_strIgnoreMissingFiles = "ignore-missing";
-static string const g_strColor = "color";
-static string const g_strNoColor = "no-color";
-static string const g_strNewReporter = "new-reporter";
 
 static string const g_argAbi = g_strAbi;
 static string const g_argPrettyJson = g_strPrettyJson;
@@ -167,7 +152,6 @@ static string const g_argGas = g_strGas;
 static string const g_argHelp = g_strHelp;
 static string const g_argInputFile = g_strInputFile;
 static string const g_argYul = g_strYul;
-static string const g_argIR = g_strIR;
 static string const g_argLibraries = g_strLibraries;
 static string const g_argLink = g_strLink;
 static string const g_argMachine = g_strMachine;
@@ -185,9 +169,6 @@ static string const g_argStrictAssembly = g_strStrictAssembly;
 static string const g_argVersion = g_strVersion;
 static string const g_stdinFileName = g_stdinFileNameStr;
 static string const g_argIgnoreMissingFiles = g_strIgnoreMissingFiles;
-static string const g_argColor = g_strColor;
-static string const g_argNoColor = g_strNoColor;
-static string const g_argNewReporter = g_strNewReporter;
 
 /// Possible arguments to for --combined-json
 static set<string> const g_combinedJsonArgs
@@ -286,26 +267,12 @@ void CommandLineInterface::handleBinary(string const& _contract)
 void CommandLineInterface::handleOpcode(string const& _contract)
 {
 	if (m_args.count(g_argOutputDir))
-		createFile(m_compiler->filesystemFriendlyName(_contract) + ".opcode", dev::eth::disassemble(m_compiler->object(_contract).bytecode));
+		createFile(m_compiler->filesystemFriendlyName(_contract) + ".opcode", solidity::disassemble(m_compiler->object(_contract).bytecode));
 	else
 	{
 		sout() << "Opcodes: " << endl;
-		sout() << dev::eth::disassemble(m_compiler->object(_contract).bytecode);
+		sout() << solidity::disassemble(m_compiler->object(_contract).bytecode);
 		sout() << endl;
-	}
-}
-
-void CommandLineInterface::handleIR(string const& _contractName)
-{
-	if (m_args.count(g_argIR))
-	{
-		if (m_args.count(g_argOutputDir))
-			createFile(m_compiler->filesystemFriendlyName(_contractName) + ".yul", m_compiler->yulIR(_contractName));
-		else
-		{
-			sout() << "IR: " << endl;
-			sout() << m_compiler->yulIR(_contractName) << endl;
-		}
 	}
 }
 
@@ -610,7 +577,7 @@ at standard output or in files in the output directory, if specified.
 Imports are automatically read from the filesystem, but it is also possible to
 remap paths using the context:prefix=path syntax.
 Example:
-solc --bin -o /tmp/solcoutput dapp-bin=/usr/local/lib/dapp-bin contract.sol
+    solc --bin -o /tmp/solcoutput dapp-bin=/usr/local/lib/dapp-bin contract.sol
 
 Allowed options)",
 		po::options_description::m_default_line_length,
@@ -623,7 +590,7 @@ Allowed options)",
 		(
 			g_strEVMVersion.c_str(),
 			po::value<string>()->value_name("version"),
-			"Select desired EVM version. Either homestead, tangerineWhistle, spuriousDragon, byzantium, constantinople or petersburg (default)."
+			"Select desired EVM version. Either homestead, tangerineWhistle, spuriousDragon, byzantium (default) or constantinople."
 		)
 		(g_argOptimize.c_str(), "Enable bytecode optimizer.")
 		(
@@ -632,7 +599,6 @@ Allowed options)",
 			"Set for how many contract runs to optimize."
 			"Lower values will optimize more for initial deployment cost, higher values will optimize more for high-frequency usage."
 		)
-		(g_strOptimizeYul.c_str(), "Enable Yul optimizer in Solidity, mostly for ABIEncoderV2. Still considered experimental.")
 		(g_argPrettyJson.c_str(), "Output JSON in pretty format. Currently it only works with the combined JSON output.")
 		(
 			g_argLibraries.c_str(),
@@ -686,9 +652,6 @@ Allowed options)",
 			po::value<string>()->value_name("path(s)"),
 			"Allow a given path for imports. A list of paths can be supplied by separating them with a comma."
 		)
-		(g_argColor.c_str(), "Force colored output.")
-		(g_argNoColor.c_str(), "Explicitly disable colored output, disabling terminal auto-detection.")
-		(g_argNewReporter.c_str(), "Enables new diagnostics reporter.")
 		(g_argIgnoreMissingFiles.c_str(), "Ignore missing files.");
 	po::options_description outputComponents("Output Components");
 	outputComponents.add_options()
@@ -701,7 +664,6 @@ Allowed options)",
 		(g_argBinary.c_str(), "Binary of the contracts in hex.")
 		(g_argBinaryRuntime.c_str(), "Binary of the runtime part of the contracts in hex.")
 		(g_argAbi.c_str(), "ABI specification of the contracts.")
-		(g_argIR.c_str(), "Intermediate Representation (IR) of all contracts (EXPERIMENTAL).")
 		(g_argSignatureHashes.c_str(), "Function signature hashes of the contracts.")
 		(g_argNatspecUser.c_str(), "Natspec user documentation of all contracts.")
 		(g_argNatspecDev.c_str(), "Natspec developer documentation of all contracts.")
@@ -728,14 +690,6 @@ Allowed options)",
 		serr() << _exception.what() << endl;
 		return false;
 	}
-
-	if (m_args.count(g_argColor) && m_args.count(g_argNoColor))
-	{
-		serr() << "Option " << g_argColor << " and " << g_argNoColor << " are mutualy exclusive." << endl;
-		return false;
-	}
-
-	m_coloredOutput = !m_args.count(g_argNoColor) && (isatty(STDERR_FILENO) || m_args.count(g_argColor));
 
 	if (m_args.count(g_argHelp) || (isatty(fileno(stdin)) && _argc == 1))
 	{
@@ -777,7 +731,7 @@ bool CommandLineInterface::processInput()
 		try
 		{
 			auto path = boost::filesystem::path(_path);
-			auto canonicalPath = boost::filesystem::weakly_canonical(path);
+			auto canonicalPath = weaklyCanonicalFilesystemPath(path);
 			bool isAllowed = false;
 			for (auto const& allowedDir: m_allowedDirectories)
 			{
@@ -834,7 +788,7 @@ bool CommandLineInterface::processInput()
 	{
 		string input = dev::readStandardInput();
 		StandardCompiler compiler(fileReader);
-		sout() << compiler.compile(std::move(input)) << endl;
+		sout() << compiler.compile(input) << endl;
 		return true;
 	}
 
@@ -849,7 +803,7 @@ bool CommandLineInterface::processInput()
 	if (m_args.count(g_strEVMVersion))
 	{
 		string versionOptionStr = m_args[g_strEVMVersion].as<string>();
-		boost::optional<langutil::EVMVersion> versionOption = langutil::EVMVersion::fromString(versionOptionStr);
+		boost::optional<EVMVersion> versionOption = EVMVersion::fromString(versionOptionStr);
 		if (!versionOption)
 		{
 			serr() << "Invalid option for --evm-version: " << versionOptionStr << endl;
@@ -862,11 +816,11 @@ bool CommandLineInterface::processInput()
 	{
 		// switch to assembly mode
 		m_onlyAssemble = true;
-		using Input = yul::AssemblyStack::Language;
-		using Machine = yul::AssemblyStack::Machine;
+		using Input = AssemblyStack::Language;
+		using Machine = AssemblyStack::Machine;
 		Input inputLanguage = m_args.count(g_argYul) ? Input::Yul : (m_args.count(g_argStrictAssembly) ? Input::StrictAssembly : Input::Assembly);
 		Machine targetMachine = Machine::EVM;
-		bool optimize = m_args.count(g_argOptimize) || m_args.count(g_strOptimizeYul);
+		bool optimize = m_args.count(g_argOptimize);
 		if (m_args.count(g_argMachine))
 		{
 			string machine = m_args[g_argMachine].as<string>();
@@ -882,19 +836,17 @@ bool CommandLineInterface::processInput()
 				return false;
 			}
 		}
-		if (optimize && inputLanguage != Input::StrictAssembly)
+		if (optimize && inputLanguage == Input::Assembly)
 		{
 			serr() <<
-				"Optimizer can only be used for strict assembly. Use --" <<
+				"Optimizer cannot be used for loose assembly. Use --" <<
 				g_strStrictAssembly <<
+				" or --" <<
+				g_strYul <<
 				"." <<
 				endl;
 			return false;
 		}
-		serr() <<
-			"Warning: Yul and its optimizer are still experimental. Please use the output with care." <<
-			endl;
-
 		return assemble(inputLanguage, targetMachine, optimize);
 	}
 	if (m_args.count(g_argLink))
@@ -906,11 +858,8 @@ bool CommandLineInterface::processInput()
 
 	m_compiler.reset(new CompilerStack(fileReader));
 
-	unique_ptr<SourceReferenceFormatter> formatter;
-	if (m_args.count(g_argNewReporter))
-		formatter = make_unique<SourceReferenceFormatterHuman>(serr(false), m_coloredOutput);
-	else
-		formatter = make_unique<SourceReferenceFormatter>(serr(false));
+	auto scannerFromSourceName = [&](string const& _sourceName) -> Scanner const& { return m_compiler->scanner(_sourceName); };
+	SourceReferenceFormatter formatter(serr(false), scannerFromSourceName);
 
 	try
 	{
@@ -918,26 +867,25 @@ bool CommandLineInterface::processInput()
 			m_compiler->useMetadataLiteralSources(true);
 		if (m_args.count(g_argInputFile))
 			m_compiler->setRemappings(m_remappings);
-		m_compiler->setSources(m_sourceCodes);
+		for (auto const& sourceCode: m_sourceCodes)
+			m_compiler->addSource(sourceCode.first, sourceCode.second);
 		if (m_args.count(g_argLibraries))
 			m_compiler->setLibraries(m_libraries);
 		m_compiler->setEVMVersion(m_evmVersion);
 		// TODO: Perhaps we should not compile unless requested
-
-		m_compiler->enableIRGeneration(m_args.count(g_argIR));
-
-		OptimiserSettings settings = m_args.count(g_argOptimize) ? OptimiserSettings::standard() : OptimiserSettings::minimal();
-		settings.expectedExecutionsPerDeployment = m_args[g_argOptimizeRuns].as<unsigned>();
-		settings.runYulOptimiser = m_args.count(g_strOptimizeYul);
-		settings.optimizeStackAllocation = settings.runYulOptimiser;
-		m_compiler->setOptimiserSettings(settings);
+		bool optimize = m_args.count(g_argOptimize) > 0;
+		unsigned runs = m_args[g_argOptimizeRuns].as<unsigned>();
+		m_compiler->setOptimiserSettings(optimize, runs);
 
 		bool successful = m_compiler->compile();
 
 		for (auto const& error: m_compiler->errors())
 		{
 			g_hasOutput = true;
-			formatter->printErrorInformation(*error);
+			formatter.printExceptionInformation(
+				*error,
+				(error->type() == Error::Type::Warning) ? "Warning" : "Error"
+			);
 		}
 
 		if (!successful)
@@ -946,23 +894,19 @@ bool CommandLineInterface::processInput()
 	catch (CompilerError const& _exception)
 	{
 		g_hasOutput = true;
-		formatter->printExceptionInformation(_exception, "Compiler error");
+		formatter.printExceptionInformation(_exception, "Compiler error");
 		return false;
 	}
 	catch (InternalCompilerError const& _exception)
 	{
-		serr() <<
-			"Internal compiler error during compilation:" <<
-			endl <<
-			boost::diagnostic_information(_exception);
+		serr() << "Internal compiler error during compilation:" << endl
+			 << boost::diagnostic_information(_exception);
 		return false;
 	}
 	catch (UnimplementedFeatureError const& _exception)
 	{
-		serr() <<
-			"Unimplemented feature:" <<
-			endl <<
-			boost::diagnostic_information(_exception);
+		serr() << "Unimplemented feature:" << endl
+			 << boost::diagnostic_information(_exception);
 		return false;
 	}
 	catch (Error const& _error)
@@ -972,7 +916,7 @@ bool CommandLineInterface::processInput()
 		else
 		{
 			g_hasOutput = true;
-			formatter->printExceptionInformation(_error, _error.typeName());
+			formatter.printExceptionInformation(_error, _error.typeName());
 		}
 
 		return false;
@@ -1017,7 +961,7 @@ void CommandLineInterface::handleCombinedJSON()
 		if (requests.count(g_strBinaryRuntime))
 			contractData[g_strBinaryRuntime] = m_compiler->runtimeObject(contractName).toHex();
 		if (requests.count(g_strOpcodes))
-			contractData[g_strOpcodes] = dev::eth::disassemble(m_compiler->object(contractName).bytecode);
+			contractData[g_strOpcodes] = solidity::disassemble(m_compiler->object(contractName).bytecode);
 		if (requests.count(g_strAsm))
 			contractData[g_strAsm] = m_compiler->assemblyJSON(contractName, m_sourceCodes);
 		if (requests.count(g_strSrcMap))
@@ -1205,7 +1149,7 @@ bool CommandLineInterface::link()
 		for (auto const& library: m_libraries)
 			boost::algorithm::erase_all(src.second, "\n" + libraryPlaceholderHint(library.first));
 		while (!src.second.empty() && *prev(src.second.end()) == '\n')
-			src.second.resize(src.second.size() - 1);
+			   src.second.resize(src.second.size() - 1);
 	}
 	return true;
 }
@@ -1246,25 +1190,21 @@ string CommandLineInterface::objectWithLinkRefsHex(eth::LinkerObject const& _obj
 }
 
 bool CommandLineInterface::assemble(
-	yul::AssemblyStack::Language _language,
-	yul::AssemblyStack::Machine _targetMachine,
+	AssemblyStack::Language _language,
+	AssemblyStack::Machine _targetMachine,
 	bool _optimize
 )
 {
 	bool successful = true;
-	map<string, yul::AssemblyStack> assemblyStacks;
+	map<string, AssemblyStack> assemblyStacks;
 	for (auto const& src: m_sourceCodes)
 	{
-		auto& stack = assemblyStacks[src.first] = yul::AssemblyStack(
-			m_evmVersion,
-			_language,
-			_optimize ? OptimiserSettings::full() : OptimiserSettings::minimal()
-		);
+		auto& stack = assemblyStacks[src.first] = AssemblyStack(m_evmVersion, _language);
 		try
 		{
 			if (!stack.parseAndAnalyze(src.first, src.second))
 				successful = false;
-			else
+			else if (_optimize)
 				stack.optimize();
 		}
 		catch (Exception const& _exception)
@@ -1282,16 +1222,16 @@ bool CommandLineInterface::assemble(
 	for (auto const& sourceAndStack: assemblyStacks)
 	{
 		auto const& stack = sourceAndStack.second;
-		unique_ptr<SourceReferenceFormatter> formatter;
-		if (m_args.count(g_argNewReporter))
-			formatter = make_unique<SourceReferenceFormatterHuman>(serr(false), m_coloredOutput);
-		else
-			formatter = make_unique<SourceReferenceFormatter>(serr(false));
+		auto scannerFromSourceName = [&](string const&) -> Scanner const& { return stack.scanner(); };
+		SourceReferenceFormatter formatter(serr(false), scannerFromSourceName);
 
 		for (auto const& error: stack.errors())
 		{
 			g_hasOutput = true;
-			formatter->printErrorInformation(*error);
+			formatter.printExceptionInformation(
+				*error,
+				(error->type() == Error::Type::Warning) ? "Warning" : "Error"
+			);
 		}
 		if (!Error::containsOnlyWarnings(stack.errors()))
 			successful = false;
@@ -1303,16 +1243,16 @@ bool CommandLineInterface::assemble(
 	for (auto const& src: m_sourceCodes)
 	{
 		string machine =
-			_targetMachine == yul::AssemblyStack::Machine::EVM ? "EVM" :
-			_targetMachine == yul::AssemblyStack::Machine::EVM15 ? "EVM 1.5" :
+			_targetMachine == AssemblyStack::Machine::EVM ? "EVM" :
+			_targetMachine == AssemblyStack::Machine::EVM15 ? "EVM 1.5" :
 			"eWasm";
 		sout() << endl << "======= " << src.first << " (" << machine << ") =======" << endl;
-		yul::AssemblyStack& stack = assemblyStacks[src.first];
+		AssemblyStack& stack = assemblyStacks[src.first];
 
 		sout() << endl << "Pretty printed source:" << endl;
 		sout() << stack.print() << endl;
 
-		yul::MachineAssemblyObject object;
+		MachineAssemblyObject object;
 		try
 		{
 			object = stack.assemble(_targetMachine);
@@ -1382,7 +1322,6 @@ void CommandLineInterface::outputCompilationResults()
 			handleGasEstimation(contract);
 
 		handleBytecode(contract);
-		handleIR(contract);
 		handleSignatureHashes(contract);
 		handleMetadata(contract);
 		handleABI(contract);

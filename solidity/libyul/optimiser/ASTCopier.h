@@ -58,8 +58,6 @@ public:
 	virtual Statement operator()(Switch const& _switch) = 0;
 	virtual Statement operator()(FunctionDefinition const&) = 0;
 	virtual Statement operator()(ForLoop const&) = 0;
-	virtual Statement operator()(Break const&) = 0;
-	virtual Statement operator()(Continue const&) = 0;
 	virtual Statement operator()(Block const& _block) = 0;
 };
 
@@ -85,8 +83,6 @@ public:
 	Statement operator()(Switch const& _switch) override;
 	Statement operator()(FunctionDefinition const&) override;
 	Statement operator()(ForLoop const&) override;
-	Statement operator()(Break const&) override;
-	Statement operator()(Continue const&) override;
 	Statement operator()(Block const& _block) override;
 
 	virtual Expression translate(Expression const& _expression);
@@ -97,14 +93,13 @@ protected:
 	std::vector<T> translateVector(std::vector<T> const& _values);
 
 	template <typename T>
-	std::unique_ptr<T> translate(std::unique_ptr<T> const& _v)
+	std::shared_ptr<T> translate(std::shared_ptr<T> const& _v)
 	{
-		return _v ? std::make_unique<T>(translate(*_v)) : nullptr;
+		return _v ? std::make_shared<T>(translate(*_v)) : nullptr;
 	}
-
 	Block translate(Block const& _block);
 	Case translate(Case const& _case);
-	virtual Identifier translate(Identifier const& _identifier);
+	Identifier translate(Identifier const& _identifier);
 	Literal translate(Literal const& _literal);
 	TypedName translate(TypedName const& _typedName);
 

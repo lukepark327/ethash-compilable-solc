@@ -19,9 +19,9 @@
  * @date 2018
  */
 
-#include <libdevcore/JSON.h>
+#include "JSON.h"
 
-#include <libdevcore/CommonIO.h>
+#include "CommonIO.h"
 
 #include <sstream>
 #include <map>

@@ -3,9 +3,8 @@
     a := 0
     a := mload(0)
 }
-// ====
-// step: redundantAssignEliminator
 // ----
+// redundantAssignEliminator
 // {
 //     let a
 //     a := mload(0)

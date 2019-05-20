@@ -22,44 +22,40 @@
 
 #include <libyul/optimiser/NameCollector.h>
 #include <libyul/AsmData.h>
-#include <libyul/Dialect.h>
-#include <libyul/backends/evm/EVMDialect.h>
-#include <libyul/AsmParser.h>
-
-#include <libevmasm/Instruction.h>
 
 using namespace std;
 using namespace dev;
 using namespace yul;
 
-NameDispenser::NameDispenser(Dialect const& _dialect, Block const& _ast):
-	NameDispenser(_dialect, NameCollector(_ast).names())
+NameDispenser::NameDispenser(Block const& _ast):
+	NameDispenser(NameCollector(_ast).names())
 {
 }
 
-NameDispenser::NameDispenser(Dialect const& _dialect, set<YulString> _usedNames):
-	m_dialect(_dialect),
+NameDispenser::NameDispenser(set<YulString> _usedNames):
 	m_usedNames(std::move(_usedNames))
 {
 }
 
-YulString NameDispenser::newName(YulString _nameHint)
+YulString NameDispenser::newName(YulString _nameHint, YulString _context)
+{
+	// Shortening rules: Use a suffix of _prefix and a prefix of _context.
+	YulString prefix = _nameHint;
+
+	if (!_context.empty())
+		prefix = YulString{_context.str().substr(0, 10) + "_" + prefix.str()};
+
+	return newNameInternal(prefix);
+}
+
+YulString NameDispenser::newNameInternal(YulString _nameHint)
 {
 	YulString name = _nameHint;
-	while (illegalName(name))
+	while (name.empty() || m_usedNames.count(name))
 	{
 		m_counter++;
 		name = YulString(_nameHint.str() + "_" + to_string(m_counter));
 	}
 	m_usedNames.emplace(name);
 	return name;
-}
-
-bool NameDispenser::illegalName(YulString _name)
-{
-	if (_name.empty() || m_usedNames.count(_name) || m_dialect.builtin(_name))
-		return true;
-	if (dynamic_cast<EVMDialect const*>(&m_dialect))
-		return Parser::instructions().count(_name.str());
-	return false;
 }

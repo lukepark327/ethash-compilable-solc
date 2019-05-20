@@ -6,9 +6,8 @@
     case 0 { x := 2 }
     mstore(x, 0)
 }
-// ====
-// step: redundantAssignEliminator
 // ----
+// redundantAssignEliminator
 // {
 //     let x
 //     x := 1

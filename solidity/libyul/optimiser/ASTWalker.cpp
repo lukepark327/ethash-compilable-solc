@@ -27,6 +27,8 @@
 using namespace std;
 using namespace dev;
 using namespace yul;
+using namespace dev::solidity;
+
 
 void ASTWalker::operator()(FunctionalInstruction const& _instr)
 {
@@ -91,16 +93,6 @@ void ASTWalker::operator()(Block const& _block)
 	walkVector(_block.statements);
 }
 
-void ASTWalker::visit(Statement const& _st)
-{
-	boost::apply_visitor(*this, _st);
-}
-
-void ASTWalker::visit(Expression const& _e)
-{
-	boost::apply_visitor(*this, _e);
-}
-
 void ASTModifier::operator()(FunctionalInstruction& _instr)
 {
 	walkVector(_instr.arguments | boost::adaptors::reversed);
@@ -159,25 +151,7 @@ void ASTModifier::operator()(ForLoop& _for)
 	(*this)(_for.body);
 }
 
-void ASTModifier::operator()(Break&)
-{
-}
-
-void ASTModifier::operator()(Continue&)
-{
-}
-
 void ASTModifier::operator()(Block& _block)
 {
 	walkVector(_block.statements);
-}
-
-void ASTModifier::visit(Statement& _st)
-{
-	boost::apply_visitor(*this, _st);
-}
-
-void ASTModifier::visit(Expression& _e)
-{
-	boost::apply_visitor(*this, _e);
 }

@@ -96,19 +96,19 @@ bool SemanticInformation::isDupInstruction(AssemblyItem const& _item)
 {
 	if (_item.type() != Operation)
 		return false;
-	return dev::eth::isDupInstruction(_item.instruction());
+	return solidity::isDupInstruction(_item.instruction());
 }
 
 bool SemanticInformation::isSwapInstruction(AssemblyItem const& _item)
 {
 	if (_item.type() != Operation)
 		return false;
-	return dev::eth::isSwapInstruction(_item.instruction());
+	return solidity::isSwapInstruction(_item.instruction());
 }
 
 bool SemanticInformation::isJumpInstruction(AssemblyItem const& _item)
 {
-	return _item == Instruction::JUMP || _item == Instruction::JUMPI;
+	return _item == AssemblyItem(Instruction::JUMP) || _item == AssemblyItem(Instruction::JUMPI);
 }
 
 bool SemanticInformation::altersControlFlow(AssemblyItem const& _item)
@@ -132,22 +132,6 @@ bool SemanticInformation::altersControlFlow(AssemblyItem const& _item)
 	}
 }
 
-bool SemanticInformation::terminatesControlFlow(AssemblyItem const& _item)
-{
-	if (_item.type() != Operation)
-		return false;
-	switch (_item.instruction())
-	{
-	case Instruction::RETURN:
-	case Instruction::SELFDESTRUCT:
-	case Instruction::STOP:
-	case Instruction::INVALID:
-	case Instruction::REVERT:
-		return true;
-	default:
-		return false;
-	}
-}
 
 bool SemanticInformation::isDeterministic(AssemblyItem const& _item)
 {

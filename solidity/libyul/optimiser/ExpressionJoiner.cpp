@@ -22,7 +22,7 @@
 #include <libyul/optimiser/ExpressionJoiner.h>
 
 #include <libyul/optimiser/NameCollector.h>
-#include <libyul/optimiser/OptimizerUtilities.h>
+#include <libyul/optimiser/Utilities.h>
 #include <libyul/Exceptions.h>
 #include <libyul/AsmData.h>
 
@@ -33,6 +33,7 @@
 using namespace std;
 using namespace dev;
 using namespace yul;
+using namespace dev::solidity;
 
 void ExpressionJoiner::operator()(FunctionalInstruction& _instruction)
 {

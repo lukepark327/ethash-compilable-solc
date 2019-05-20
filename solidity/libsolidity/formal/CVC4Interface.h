@@ -18,6 +18,7 @@
 #pragma once
 
 #include <libsolidity/formal/SolverInterface.h>
+
 #include <boost/noncopyable.hpp>
 
 #if defined(__GLIBC__)

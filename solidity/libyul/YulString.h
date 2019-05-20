@@ -42,9 +42,10 @@ public:
 		size_t id;
 		std::uint64_t hash;
 	};
-
-	YulStringRepository() = default;
-
+	YulStringRepository():
+		m_strings{std::make_shared<std::string>()},
+		m_hashToID{std::make_pair(emptyHash(), 0)}
+	{}
 	static YulStringRepository& instance()
 	{
 		static YulStringRepository inst;
@@ -79,10 +80,9 @@ public:
 		return hash;
 	}
 	static constexpr std::uint64_t emptyHash() { return 14695981039346656037u; }
-
 private:
-	std::vector<std::shared_ptr<std::string>> m_strings = {std::make_shared<std::string>()};
-	std::unordered_multimap<std::uint64_t, size_t> m_hashToID = {{emptyHash(), 0}};
+	std::vector<std::shared_ptr<std::string>> m_strings;
+	std::unordered_multimap<std::uint64_t, size_t> m_hashToID;
 };
 
 /// Wrapper around handles into the YulString repository.
@@ -126,10 +126,5 @@ private:
 	/// Handle of the string. Assumes that the empty string has ID zero.
 	YulStringRepository::Handle m_handle{ 0, YulStringRepository::emptyHash() };
 };
-
-inline YulString operator "" _yulstring(char const* _string, std::size_t _size)
-{
-	return YulString(std::string(_string, _size));
-}
 
 }

@@ -17,8 +17,6 @@ if (LLL)
 endif()
 file(GLOB libsolidity_sources "libsolidity/*.cpp")
 file(GLOB libsolidity_headers "libsolidity/*.h")
-file(GLOB libsolidity_util_sources "libsolidity/util/*.cpp")
-file(GLOB libsolidity_util_headers "libsolidity/util/*.h")
 
 add_executable(soltest ${sources} ${headers}
     ${contracts_sources} ${contracts_headers}
@@ -28,9 +26,8 @@ add_executable(soltest ${sources} ${headers}
     ${libyul_sources} ${libyul_headers}
     ${liblll_sources} ${liblll_headers}
     ${libsolidity_sources} ${libsolidity_headers}
-    ${libsolidity_util_sources} ${libsolidity_util_headers}
 )
-target_link_libraries(soltest PRIVATE libsolc yul solidity yulInterpreter evmasm devcore ${Boost_PROGRAM_OPTIONS_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES})
+target_link_libraries(soltest PRIVATE libsolc yul solidity evmasm devcore ${Boost_UNIT_TEST_FRAMEWORK_LIBRARIES})
 
 if (LLL)
     target_link_libraries(soltest PRIVATE lll)

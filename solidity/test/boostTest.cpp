@@ -35,13 +35,15 @@
 
 #pragma GCC diagnostic pop
 
-#include <test/InteractiveTests.h>
 #include <test/Options.h>
+#include <test/libsolidity/ASTJSONTest.h>
+#include <test/libsolidity/SyntaxTest.h>
+#include <test/libsolidity/SMTCheckerJSONTest.h>
+#include <test/libyul/YulOptimizerTest.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
-#include <string>
 
 using namespace boost::unit_test;
 using namespace dev::solidity::test;
@@ -74,13 +76,11 @@ int registerTests(
 	boost::unit_test::test_suite& _suite,
 	boost::filesystem::path const& _basepath,
 	boost::filesystem::path const& _path,
-	std::string const& _ipcPath,
 	TestCase::TestCaseCreator _testCaseCreator
 )
 {
 	int numTestsAdded = 0;
 	fs::path fullpath = _basepath / _path;
-	TestCase::Config config{fullpath.string(), _ipcPath, dev::test::Options::get().evmVersion()};
 	if (fs::is_directory(fullpath))
 	{
 		test_suite* sub_suite = BOOST_TEST_SUITE(_path.filename().string());
@@ -89,7 +89,7 @@ int registerTests(
 			fs::directory_iterator()
 		))
 			if (fs::is_directory(entry.path()) || TestCase::isTestFilename(entry.path().filename()))
-				numTestsAdded += registerTests(*sub_suite, _basepath, _path / entry.path().filename(), _ipcPath, _testCaseCreator);
+				numTestsAdded += registerTests(*sub_suite, _basepath, _path / entry.path().filename(), _testCaseCreator);
 		_suite.add(sub_suite);
 	}
 	else
@@ -98,16 +98,14 @@ int registerTests(
 
 		filenames.emplace_back(new string(_path.string()));
 		_suite.add(make_test_case(
-			[config, _testCaseCreator]
+			[fullpath, _testCaseCreator]
 			{
 				BOOST_REQUIRE_NO_THROW({
 					try
 					{
 						stringstream errorStream;
-						auto testCase = _testCaseCreator(config);
-						if (testCase->validateSettings(dev::test::Options::get().evmVersion()))
-							if (!testCase->run(errorStream))
-								BOOST_ERROR("Test expectation mismatch.\n" + errorStream.str());
+						if (!_testCaseCreator(fullpath.string())->run(errorStream))
+							BOOST_ERROR("Test expectation mismatch.\n" + errorStream.str());
 					}
 					catch (boost::exception const& _e)
 					{
@@ -130,27 +128,40 @@ test_suite* init_unit_test_suite( int /*argc*/, char* /*argv*/[] )
 	master_test_suite_t& master = framework::master_test_suite();
 	master.p_name.value = "SolidityTests";
 	dev::test::Options::get().validate();
-
-	// Include the interactive tests in the automatic tests as well
-	for (auto const& ts: g_interactiveTestsuites)
+	solAssert(registerTests(
+		master,
+		dev::test::Options::get().testPath / "libsolidity",
+		"syntaxTests",
+		SyntaxTest::create
+	) > 0, "no syntax tests found");
+	solAssert(registerTests(
+		master,
+		dev::test::Options::get().testPath / "libsolidity",
+		"ASTJSON",
+		ASTJSONTest::create
+	) > 0, "no JSON AST tests found");
+	solAssert(registerTests(
+		master,
+		dev::test::Options::get().testPath / "libyul",
+		"yulOptimizerTests",
+		yul::test::YulOptimizerTest::create
+	) > 0, "no Yul Optimizer tests found");
+	if (!dev::test::Options::get().disableSMT)
 	{
-		auto const& options = dev::test::Options::get();
-
-		if (ts.smt && options.disableSMT)
-			continue;
-
-		if (ts.ipc && options.disableIPC)
-			continue;
+		solAssert(registerTests(
+			master,
+			dev::test::Options::get().testPath / "libsolidity",
+			"smtCheckerTests",
+			SyntaxTest::create
+		) > 0, "no SMT checker tests found");
 
 		solAssert(registerTests(
 			master,
-			options.testPath / ts.path,
-			ts.subpath,
-			options.ipcPath.string(),
-			ts.testCaseCreator
-		) > 0, std::string("no ") + ts.title + " tests found");
+			dev::test::Options::get().testPath / "libsolidity",
+			"smtCheckerTestsJSON",
+			SMTCheckerTest::create
+		) > 0, "no SMT checker JSON tests found");
 	}
-
 	if (dev::test::Options::get().disableIPC)
 	{
 		for (auto suite: {
@@ -165,13 +176,11 @@ test_suite* init_unit_test_suite( int /*argc*/, char* /*argv*/[] )
 			"LLLEndToEndTest",
 #endif
 			"GasMeterTests",
-			"GasCostTests",
 			"SolidityEndToEndTest",
 			"SolidityOptimizer"
 		})
 			removeTestSuite(suite);
 	}
-
 	if (dev::test::Options::get().disableSMT)
 		removeTestSuite("SMTChecker");
 

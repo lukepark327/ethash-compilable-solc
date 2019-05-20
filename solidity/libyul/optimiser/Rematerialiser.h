@@ -26,46 +26,16 @@ namespace yul
 {
 
 /**
- * Optimisation stage that replaces variables by their most recently assigned expressions,
- * but only if the expression is movable and one of the following holds:
- *  - the variable is referenced exactly once
- *  - the value is extremely cheap ("cost" of zero like ``caller()``)
- *  - the variable is referenced at most 5 times and the value is rather cheap
- *    ("cost" of at most 1 like a constant up to 0xff)
+ * Optimisation stage that replaces variables by their most recently assigned expressions.
  *
- * Prerequisite: Disambiguator, ForLoopInitRewriter.
+ * Prerequisite: Disambiguator
  */
 class Rematerialiser: public DataFlowAnalyzer
 {
-public:
-	static void run(
-		Dialect const& _dialect,
-		Block& _ast,
-		std::set<YulString> _varsToAlwaysRematerialize = {}
-	);
-	static void run(
-		Dialect const& _dialect,
-		FunctionDefinition& _function,
-		std::set<YulString> _varsToAlwaysRematerialize = {}
-	);
-
 protected:
-	Rematerialiser(
-		Dialect const& _dialect,
-		Block& _ast,
-		std::set<YulString> _varsToAlwaysRematerialize = {}
-	);
-	Rematerialiser(
-		Dialect const& _dialect,
-		FunctionDefinition& _function,
-		std::set<YulString> _varsToAlwaysRematerialize = {}
-	);
-
 	using ASTModifier::visit;
 	void visit(Expression& _e) override;
 
-	std::map<YulString, size_t> m_referenceCounts;
-	std::set<YulString> m_varsToAlwaysRematerialize;
 };
 
 }

@@ -22,7 +22,7 @@
 
 #include <libyul/optimiser/NameCollector.h>
 #include <libyul/optimiser/Semantics.h>
-#include <libyul/optimiser/OptimizerUtilities.h>
+#include <libyul/optimiser/Utilities.h>
 #include <libyul/Exceptions.h>
 #include <libyul/AsmData.h>
 
@@ -32,18 +32,12 @@ using namespace std;
 using namespace dev;
 using namespace yul;
 
-UnusedPruner::UnusedPruner(Dialect const& _dialect, Block& _ast, set<YulString> const& _externallyUsedFunctions):
-	m_dialect(_dialect)
+UnusedPruner::UnusedPruner(Block& _ast, set<YulString> const& _externallyUsedFunctions)
 {
-	m_references = ReferencesCounter::countReferences(_ast);
-	for (auto const& f: _externallyUsedFunctions)
-		++m_references[f];
-}
+	ReferencesCounter counter;
+	counter(_ast);
 
-UnusedPruner::UnusedPruner(Dialect const& _dialect, FunctionDefinition& _function, set<YulString> const& _externallyUsedFunctions):
-	m_dialect(_dialect)
-{
-	m_references = ReferencesCounter::countReferences(_function);
+	m_references = counter.references();
 	for (auto const& f: _externallyUsedFunctions)
 		++m_references[f];
 }
@@ -64,8 +58,8 @@ void UnusedPruner::operator()(Block& _block)
 		{
 			VariableDeclaration& varDecl = boost::get<VariableDeclaration>(statement);
 			// Multi-variable declarations are special. We can only remove it
-			// if all variables are unused and the right-hand-side is either
-			// movable or it returns a single value. In the latter case, we
+			// if all vairables are unused and the right-hand-side is either
+			// movable or it return a single value. In the latter case, we
 			// replace `let a := f()` by `pop(f())` (in pure Yul, this will be
 			// `drop(f())`).
 			if (boost::algorithm::none_of(
@@ -75,7 +69,7 @@ void UnusedPruner::operator()(Block& _block)
 			{
 				if (!varDecl.value)
 					statement = Block{std::move(varDecl.location), {}};
-				else if (MovableChecker(m_dialect, *varDecl.value).movable())
+				else if (MovableChecker(*varDecl.value).movable())
 				{
 					subtractReferences(ReferencesCounter::countReferences(*varDecl.value));
 					statement = Block{std::move(varDecl.location), {}};
@@ -85,7 +79,7 @@ void UnusedPruner::operator()(Block& _block)
 					// instead of `pop`.
 					statement = ExpressionStatement{varDecl.location, FunctionalInstruction{
 						varDecl.location,
-						dev::eth::Instruction::POP,
+						solidity::Instruction::POP,
 						{*std::move(varDecl.value)}
 					}};
 			}
@@ -93,7 +87,7 @@ void UnusedPruner::operator()(Block& _block)
 		else if (statement.type() == typeid(ExpressionStatement))
 		{
 			ExpressionStatement& exprStmt = boost::get<ExpressionStatement>(statement);
-			if (MovableChecker(m_dialect, exprStmt.expression).movable())
+			if (MovableChecker(exprStmt.expression).movable())
 			{
 				// pop(x) should be movable!
 				subtractReferences(ReferencesCounter::countReferences(exprStmt.expression));
@@ -106,31 +100,12 @@ void UnusedPruner::operator()(Block& _block)
 	ASTModifier::operator()(_block);
 }
 
-void UnusedPruner::runUntilStabilised(
-	Dialect const& _dialect,
-	Block& _ast,
-	set<YulString> const& _externallyUsedFunctions
-)
+void UnusedPruner::runUntilStabilised(Block& _ast, set<YulString> const& _externallyUsedFunctions)
 {
 	while (true)
 	{
-		UnusedPruner pruner(_dialect, _ast, _externallyUsedFunctions);
+		UnusedPruner pruner(_ast, _externallyUsedFunctions);
 		pruner(_ast);
-		if (!pruner.shouldRunAgain())
-			return;
-	}
-}
-
-void UnusedPruner::runUntilStabilised(
-	Dialect const& _dialect,
-	FunctionDefinition& _function,
-	set<YulString> const& _externallyUsedFunctions
-)
-{
-	while (true)
-	{
-		UnusedPruner pruner(_dialect, _function, _externallyUsedFunctions);
-		pruner(_function);
 		if (!pruner.shouldRunAgain())
 			return;
 	}

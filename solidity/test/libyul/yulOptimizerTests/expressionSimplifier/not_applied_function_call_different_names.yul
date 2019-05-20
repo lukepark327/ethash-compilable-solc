@@ -3,9 +3,8 @@
 	function f2() -> b { }
 	let c := sub(f1(), f2())
 }
-// ====
-// step: expressionSimplifier
 // ----
+// expressionSimplifier
 // {
 //     function f1() -> a
 //     {

@@ -6,9 +6,8 @@
     default { let x := a let y := b b := a }
     pop(add(a, b))
 }
-// ====
-// step: rematerialiser
 // ----
+// rematerialiser
 // {
 //     let a := 1
 //     let b := 2

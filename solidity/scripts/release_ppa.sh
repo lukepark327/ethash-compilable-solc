@@ -28,12 +28,6 @@
 ##  method			= ftp
 ##  incoming		= ~ethereum/ethereum
 ##  login			= anonymous
-##
-##  [ethereum-static]
-##  fqdn			= ppa.launchpad.net
-##  method			= ftp
-##  incoming		= ~ethereum/ethereum-static
-##  login			= anonymous
 
 ##
 ##############################################################################
@@ -47,43 +41,34 @@ else
     branch=$1
 fi
 
+if [ "$branch" = develop ]
+then
+    pparepo=ethereum-dev
+    ppafilesurl=https://launchpad.net/~ethereum/+archive/ubuntu/ethereum-dev/+files
+else
+    pparepo=ethereum
+    ppafilesurl=https://launchpad.net/~ethereum/+archive/ubuntu/ethereum/+files
+fi
+
 keyid=70D110489D66E2F6
 email=builds@ethereum.org
 packagename=solc
 
-static_build_distribution=cosmic
-
-DISTRIBUTIONS="bionic cosmic disco"
-
-if [ branch != develop ]
-then
-    DISTRIBUTIONS="$DISTRIBUTIONS STATIC"
-fi
-
-for distribution in $DISTRIBUTIONS
+for distribution in trusty xenial bionic cosmic
 do
 cd /tmp/
 rm -rf $distribution
 mkdir $distribution
 cd $distribution
 
-if [ $distribution = STATIC ]
+# Dependency
+if [ $distribution = trusty -o $distribution = vivid ]
 then
-    pparepo=ethereum-static
-    SMTDEPENDENCY=""
-    CMAKE_OPTIONS="-DSOLC_LINK_STATIC=On"
+    Z3DEPENDENCY=""
 else
-    if [ "$branch" = develop ]
-    then
-        pparepo=ethereum-dev
-    else
-        pparepo=ethereum
-    fi
-    SMTDEPENDENCY="libcvc4-dev,
+    Z3DEPENDENCY="libz3-dev,
                "
-    CMAKE_OPTIONS=""
 fi
-ppafilesurl=https://launchpad.net/~ethereum/+archive/ubuntu/${pparepo}/+files
 
 # Fetch source
 git clone --depth 2 --recursive https://github.com/ethereum/solidity.git -b "$branch"
@@ -103,7 +88,7 @@ commitdate=$(git show --format=%ci HEAD | head -n 1 | cut - -b1-10 | sed -e 's/-
 echo "$commithash" > commit_hash.txt
 if [ $branch = develop ]
 then
-    debversion="$version~develop-$commitdate-$commithash"
+    debversion="$version-develop-$commitdate-$commithash"
 else
     debversion="$version"
     echo -n > prerelease.txt # proper release
@@ -127,9 +112,9 @@ Source: solc
 Section: science
 Priority: extra
 Maintainer: Christian (Buildserver key) <builds@ethereum.org>
-Build-Depends: ${SMTDEPENDENCY}debhelper (>= 9.0.0),
+Build-Depends: ${Z3DEPENDENCY}debhelper (>= 9.0.0),
                cmake,
-               g++,
+               g++-4.8,
                git,
                libgmp-dev,
                libboost-all-dev,
@@ -183,7 +168,7 @@ override_dh_shlibdeps:
 	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DINSTALL_LLLC=Off -DTESTS=OFF ${CMAKE_OPTIONS}
+	dh_auto_configure -- -DINSTALL_LLLC=Off
 EOF
 cat <<EOF > debian/copyright
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
@@ -239,12 +224,7 @@ EMAIL="$email" dch -v 1:${debversion}-${versionsuffix} "git build of ${commithas
 debuild -S -d -sa -us -uc
 
 # prepare .changes file for Launchpad
-if [ $distribution = STATIC ]
-then
-    sed -i -e s/UNRELEASED/${static_build_distribution}/ -e s/urgency=medium/urgency=low/ ../*.changes
-else
-    sed -i -e s/UNRELEASED/${distribution}/ -e s/urgency=medium/urgency=low/ ../*.changes
-fi
+sed -i -e s/UNRELEASED/${distribution}/ -e s/urgency=medium/urgency=low/ ../*.changes
 
 # check if ubuntu already has the source tarball
 (

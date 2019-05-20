@@ -29,7 +29,6 @@
 
 namespace yul
 {
-struct Dialect;
 
 /**
  * Optimiser component that modifies an AST in place, inlining functions that can be
@@ -45,8 +44,8 @@ struct Dialect;
 class ExpressionInliner: public ASTModifier
 {
 public:
-	ExpressionInliner(Dialect const& _dialect, Block& _block):
-		m_block(_block), m_dialect(_dialect)
+	ExpressionInliner(Block& _block):
+		m_block(_block)
 	{}
 
 	void run();
@@ -63,7 +62,6 @@ private:
 	std::set<YulString> m_currentFunctions;
 
 	Block& m_block;
-	Dialect const& m_dialect;
 };
 
 

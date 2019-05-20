@@ -24,7 +24,6 @@
 #pragma once
 
 #include <libsolidity/interface/ReadFile.h>
-#include <libsolidity/interface/OptimiserSettings.h>
 
 #include <liblangutil/ErrorReporter.h>
 #include <liblangutil/EVMVersion.h>
@@ -35,14 +34,15 @@
 #include <libdevcore/Common.h>
 #include <libdevcore/FixedHash.h>
 
-#include <boost/noncopyable.hpp>
 #include <json/json.h>
 
-#include <functional>
-#include <memory>
+#include <boost/noncopyable.hpp>
+
 #include <ostream>
 #include <string>
+#include <memory>
 #include <vector>
+#include <functional>
 
 namespace langutil
 {
@@ -98,9 +98,10 @@ public:
 	/// Creates a new compiler stack.
 	/// @param _readFile callback to used to read files for import statements. Must return
 	/// and must not emit exceptions.
-	explicit CompilerStack(ReadCallback::Callback const& _readFile = ReadCallback::Callback());
-
-	~CompilerStack();
+	explicit CompilerStack(ReadCallback::Callback const& _readFile = ReadCallback::Callback()):
+		m_readFile(_readFile),
+		m_errorList(),
+		m_errorReporter(m_errorList) {}
 
 	/// @returns the list of errors that occurred during parsing and type checking.
 	langutil::ErrorList const& errors() const { return m_errorReporter.errors(); }
@@ -108,53 +109,52 @@ public:
 	/// @returns the current state.
 	State state() const { return m_stackState; }
 
-	/// Resets the compiler to an empty state. Unless @a _keepSettings is set to true,
-	/// all settings are reset as well.
-	void reset(bool _keepSettings = false);
+	/// Resets the compiler to a state where the sources are not parsed or even removed.
+	/// Sets the state to SourcesSet if @a _keepSources is true, otherwise to Empty.
+	/// All settings, with the exception of remappings, are reset.
+	void reset(bool _keepSources = false);
 
 	// Parses a remapping of the format "context:prefix=target".
 	static boost::optional<Remapping> parseRemapping(std::string const& _remapping);
 
 	/// Sets path remappings.
-	/// Must be set before parsing.
 	void setRemappings(std::vector<Remapping> const& _remappings);
 
 	/// Sets library addresses. Addresses are cleared iff @a _libraries is missing.
-	/// Must be set before parsing.
-	void setLibraries(std::map<std::string, h160> const& _libraries = std::map<std::string, h160>{});
+	/// Will not take effect before running compile.
+	void setLibraries(std::map<std::string, h160> const& _libraries = std::map<std::string, h160>{})
+	{
+		m_libraries = _libraries;
+	}
 
 	/// Changes the optimiser settings.
-	/// Must be set before parsing.
-	void setOptimiserSettings(bool _optimize, unsigned _runs = 200);
-
-	/// Changes the optimiser settings.
-	/// Must be set before parsing.
-	void setOptimiserSettings(OptimiserSettings _settings);
+	/// Will not take effect before running compile.
+	void setOptimiserSettings(bool _optimize, unsigned _runs = 200)
+	{
+		m_optimize = _optimize;
+		m_optimizeRuns = _runs;
+	}
 
 	/// Set the EVM version used before running compile.
 	/// When called without an argument it will revert to the default version.
-	/// Must be set before parsing.
-	void setEVMVersion(langutil::EVMVersion _version = langutil::EVMVersion{});
+	void setEVMVersion(EVMVersion _version = EVMVersion{});
 
 	/// Sets the list of requested contract names. If empty, no filtering is performed and every contract
 	/// found in the supplied sources is compiled. Names are cleared iff @a _contractNames is missing.
-	void setRequestedContractNames(std::set<std::string> const& _contractNames = std::set<std::string>{}) {
+	void setRequestedContractNames(std::set<std::string> const& _contractNames = std::set<std::string>{})
+	{
 		m_requestedContractNames = _contractNames;
 	}
 
-	/// Enable experimental generation of Yul IR code.
-	void enableIRGeneration(bool _enable = true) { m_generateIR = _enable; }
-
 	/// @arg _metadataLiteralSources When true, store sources as literals in the contract metadata.
-	/// Must be set before parsing.
-	void useMetadataLiteralSources(bool _metadataLiteralSources);
+	void useMetadataLiteralSources(bool _metadataLiteralSources) { m_metadataLiteralSources = _metadataLiteralSources; }
 
-	/// Sets the sources. Must be set before parsing.
-	void setSources(StringMap _sources);
+	/// Adds a source object (e.g. file) to the parser. After this, parse has to be called again.
+	/// @returns true if a source object by the name already existed and was replaced.
+	bool addSource(std::string const& _name, std::string const& _content, bool _isLibrary = false);
 
 	/// Adds a response to an SMTLib2 query (identified by the hash of the query input).
-	/// Must be set before parsing.
-	void addSMTLib2Response(h256 const& _hash, std::string const& _response);
+	void addSMTLib2Response(h256 const& _hash, std::string const& _response) { m_smtlib2Responses[_hash] = _response; }
 
 	/// Parses all source units that were added
 	/// @returns false on error.
@@ -204,12 +204,6 @@ public:
 	/// @returns either the contract's name or a mixture of its name and source file, sanitized for filesystem use
 	std::string const filesystemFriendlyName(std::string const& _contractName) const;
 
-	/// @returns the IR representation of a contract.
-	std::string const& yulIR(std::string const& _contractName) const;
-
-	/// @returns the optimized IR representation of a contract.
-	std::string const& yulIROptimized(std::string const& _contractName) const;
-
 	/// @returns the assembled object for a contract.
 	eth::LinkerObject const& object(std::string const& _contractName) const;
 
@@ -238,7 +232,7 @@ public:
 	/// @returns a JSON representation of the assembly.
 	/// @arg _sourceCodes is the map of input files to source code strings
 	/// Prerequisite: Successful compilation.
-	Json::Value assemblyJSON(std::string const& _contractName, StringMap const& _sourceCodes = StringMap()) const;
+	Json::Value assemblyJSON(std::string const& _contractName, StringMap _sourceCodes = StringMap()) const;
 
 	/// @returns a JSON representing the contract ABI.
 	/// Prerequisite: Successful call to parse or compile.
@@ -267,11 +261,8 @@ private:
 	{
 		std::shared_ptr<langutil::Scanner> scanner;
 		std::shared_ptr<SourceUnit> ast;
-		h256 mutable keccak256HashCached;
-		h256 mutable swarmHashCached;
-		void reset() { *this = Source(); }
-		h256 const& keccak256() const;
-		h256 const& swarmHash() const;
+		bool isLibrary = false;
+		void reset() { scanner.reset(); ast.reset(); }
 	};
 
 	/// The state per contract. Filled gradually during compilation.
@@ -281,9 +272,7 @@ private:
 		std::shared_ptr<Compiler> compiler;
 		eth::LinkerObject object; ///< Deployment object (includes the runtime sub-object).
 		eth::LinkerObject runtimeObject; ///< Runtime object.
-		std::string yulIR; ///< Experimental Yul IR code.
-		std::string yulIROptimized; ///< Optimized experimental Yul IR code.
-		mutable std::unique_ptr<std::string const> metadata; ///< The metadata json that will be hashed into the chain.
+		std::string metadata; ///< The metadata json that will be hashed into the chain.
 		mutable std::unique_ptr<Json::Value const> abi;
 		mutable std::unique_ptr<Json::Value const> userDocumentation;
 		mutable std::unique_ptr<Json::Value const> devDocumentation;
@@ -301,17 +290,11 @@ private:
 	/// @returns true if the contract is requested to be compiled.
 	bool isRequestedContract(ContractDefinition const& _contract) const;
 
-	/// Compile a single contract.
-	/// @param _otherCompilers provides access to compilers of other contracts, to get
-	///                        their bytecode if needed. Only filled after they have been compiled.
+	/// Compile a single contract and put the result in @a _compiledContracts.
 	void compileContract(
 		ContractDefinition const& _contract,
-		std::map<ContractDefinition const*, std::shared_ptr<Compiler const>>& _otherCompilers
+		std::map<ContractDefinition const*, eth::Assembly const*>& _compiledContracts
 	);
-
-	/// Generate Yul IR for a single contract.
-	/// The IR is stored but otherwise unused.
-	void generateIR(ContractDefinition const& _contract);
 
 	/// Links all the known library addresses in the available objects. Any unknown
 	/// library will still be kept as an unlinked placeholder in the objects.
@@ -333,7 +316,7 @@ private:
 	std::string createMetadata(Contract const& _contract) const;
 
 	/// @returns the metadata CBOR for the given serialised metadata JSON.
-	static bytes createCBORMetadata(std::string const& _metadata, bool _experimentalMode);
+	static bytes createCBORMetadata(std::string _metadata, bool _experimentalMode);
 
 	/// @returns the computer source mapping string.
 	std::string computeSourceMapping(eth::AssemblyItems const& _items) const;
@@ -350,10 +333,6 @@ private:
 	/// This will generate the JSON object and store it in the Contract object if it is not present yet.
 	Json::Value const& natspecDev(Contract const&) const;
 
-	/// @returns the Contract Metadata
-	/// This will generate the metadata and store it in the Contract object if it is not present yet.
-	std::string const& metadata(Contract const&) const;
-
 	/// @returns the offset of the entry point of the given function into the list of assembly items
 	/// or zero if it is not found or does not exist.
 	size_t functionEntryPoint(
@@ -362,10 +341,10 @@ private:
 	) const;
 
 	ReadCallback::Callback m_readFile;
-	OptimiserSettings m_optimiserSettings;
-	langutil::EVMVersion m_evmVersion;
+	bool m_optimize = false;
+	unsigned m_optimizeRuns = 200;
+	EVMVersion m_evmVersion;
 	std::set<std::string> m_requestedContractNames;
-	bool m_generateIR;
 	std::map<std::string, h160> m_libraries;
 	/// list of path prefix remappings, e.g. mylibrary: github.com/ethereum = /usr/local/ethereum
 	/// "context:prefix=target"

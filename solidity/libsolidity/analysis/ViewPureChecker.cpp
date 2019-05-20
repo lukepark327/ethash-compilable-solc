@@ -16,10 +16,14 @@
 */
 
 #include <libsolidity/analysis/ViewPureChecker.h>
+
+#include <libevmasm/SemanticInformation.h>
+
 #include <libsolidity/ast/ExperimentalFeatures.h>
 #include <libyul/AsmData.h>
+
 #include <liblangutil/ErrorReporter.h>
-#include <libevmasm/SemanticInformation.h>
+
 #include <functional>
 
 using namespace std;
@@ -94,12 +98,6 @@ public:
 		(*this)(_for.body);
 		(*this)(_for.post);
 	}
-	void operator()(yul::Break const&)
-	{
-	}
-	void operator()(yul::Continue const&)
-	{
-	}
 	void operator()(yul::Block const& _block)
 	{
 		for (auto const& s: _block.statements)
@@ -108,12 +106,10 @@ public:
 
 private:
 	std::function<void(StateMutability, SourceLocation const&)> m_reportMutability;
-	void checkInstruction(SourceLocation _location, dev::eth::Instruction _instruction)
+	void checkInstruction(SourceLocation _location, solidity::Instruction _instruction)
 	{
 		if (eth::SemanticInformation::invalidInViewFunctions(_instruction))
 			m_reportMutability(StateMutability::NonPayable, _location);
-		else if (_instruction == dev::eth::Instruction::CALLVALUE)
-			m_reportMutability(StateMutability::Payable, _location);
 		else if (eth::SemanticInformation::invalidInPureFunctions(_instruction))
 			m_reportMutability(StateMutability::View, _location);
 	}
@@ -160,7 +156,6 @@ void ViewPureChecker::endVisit(FunctionDefinition const& _funDef)
 		m_bestMutabilityAndLocation.mutability < _funDef.stateMutability() &&
 		_funDef.stateMutability() != StateMutability::Payable &&
 		_funDef.isImplemented() &&
-		!_funDef.body().statements().empty() &&
 		!_funDef.isConstructor() &&
 		!_funDef.isFallback() &&
 		!_funDef.annotation().superFunction
@@ -272,13 +267,13 @@ void ViewPureChecker::reportMutability(
 			if (_nestedLocation)
 				m_errorReporter.typeError(
 					_location,
-					SecondarySourceLocation().append("\"msg.value\" or \"callvalue()\" appear here inside the modifier.", *_nestedLocation),
-					"This modifier uses \"msg.value\" or \"callvalue()\" and thus the function has to be payable or internal."
+					SecondarySourceLocation().append("\"msg.value\" appears here inside the modifier.", *_nestedLocation),
+					"This modifier uses \"msg.value\" and thus the function has to be payable or internal."
 				);
 			else
 				m_errorReporter.typeError(
 					_location,
-					"\"msg.value\" and \"callvalue()\" can only be used in payable public functions. Make the function "
+					"\"msg.value\" can only be used in payable public functions. Make the function "
 					"\"payable\" or use an internal function to avoid this error."
 				);
 			m_errors = true;
@@ -346,10 +341,7 @@ void ViewPureChecker::endVisit(MemberAccess const& _memberAccess)
 			{MagicType::Kind::ABI, "encodeWithSignature"},
 			{MagicType::Kind::Block, "blockhash"},
 			{MagicType::Kind::Message, "data"},
-			{MagicType::Kind::Message, "sig"},
-			{MagicType::Kind::MetaType, "creationCode"},
-			{MagicType::Kind::MetaType, "runtimeCode"},
-			{MagicType::Kind::MetaType, "name"},
+			{MagicType::Kind::Message, "sig"}
 		};
 		set<MagicMember> static const payableMembers{
 			{MagicType::Kind::Message, "value"}

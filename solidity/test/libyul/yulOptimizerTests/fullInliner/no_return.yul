@@ -4,13 +4,12 @@
 	}
 	f(mload(0))
 }
-// ====
-// step: fullInliner
 // ----
+// fullInliner
 // {
 //     {
-//         let a_3 := mload(0)
-//         sstore(a_3, a_3)
+//         let f_a := mload(0)
+//         sstore(f_a, f_a)
 //     }
 //     function f(a)
 //     {

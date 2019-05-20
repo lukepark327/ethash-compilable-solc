@@ -1,18 +1,18 @@
 /*
-	This file is part of solidity.
+    This file is part of solidity.
 
-	solidity is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
+    solidity is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-	solidity is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    solidity is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-	You should have received a copy of the GNU General Public License
-	along with solidity.  If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU General Public License
+    along with solidity.  If not, see <http://www.gnu.org/licenses/>.
 */
 /**
  * @author Christian <c@ethdev.com>
@@ -22,37 +22,34 @@
 
 #pragma once
 
-#include <libsolidity/ast/ASTEnums.h>
-#include <libsolidity/ast/ASTForward.h>
-#include <libsolidity/parsing/Token.h>
 #include <liblangutil/Exceptions.h>
+#include <libsolidity/ast/ASTForward.h>
+#include <libsolidity/ast/ASTEnums.h>
+#include <libsolidity/parsing/Token.h>
 
 #include <libdevcore/Common.h>
 #include <libdevcore/CommonIO.h>
-#include <libdevcore/Result.h>
 
-#include <boost/optional.hpp>
+#include <boost/noncopyable.hpp>
 #include <boost/rational.hpp>
+#include <boost/optional.hpp>
 
-#include <map>
 #include <memory>
-#include <set>
 #include <string>
+#include <map>
+#include <set>
 
 namespace dev
 {
 namespace solidity
 {
 
-class TypeProvider;
 class Type; // forward
 class FunctionType; // forward
-using TypePointer = Type const*;
-using FunctionTypePointer = FunctionType const*;
+using TypePointer = std::shared_ptr<Type const>;
+using FunctionTypePointer = std::shared_ptr<FunctionType const>;
 using TypePointers = std::vector<TypePointer>;
 using rational = boost::rational<dev::bigint>;
-using TypeResult = Result<TypePointer>;
-using BoolResult = Result<bool>;
 
 inline rational makeRational(bigint const& _numerator, bigint const& _denominator)
 {
@@ -65,7 +62,6 @@ inline rational makeRational(bigint const& _numerator, bigint const& _denominato
 }
 
 enum class DataLocation { Storage, CallData, Memory };
-
 
 /**
  * Helper class to compute storage offsets of members of structs and contracts.
@@ -94,7 +90,7 @@ class MemberList
 public:
 	struct Member
 	{
-		Member(std::string const& _name, Type const* _type, Declaration const* _declaration = nullptr):
+		Member(std::string const& _name, TypePointer const& _type, Declaration const* _declaration = nullptr):
 			name(_name),
 			type(_type),
 			declaration(_declaration)
@@ -102,18 +98,17 @@ public:
 		}
 
 		std::string name;
-		Type const* type;
+		TypePointer type;
 		Declaration const* declaration = nullptr;
 	};
 
 	using MemberMap = std::vector<Member>;
 
 	explicit MemberList(MemberMap const& _members): m_memberTypes(_members) {}
-
 	void combine(MemberList const& _other);
 	TypePointer memberType(std::string const& _name) const
 	{
-		TypePointer type = nullptr;
+		TypePointer type;
 		for (auto const& it: m_memberTypes)
 			if (it.name == _name)
 			{
@@ -149,16 +144,10 @@ static_assert(std::is_nothrow_move_constructible<MemberList>::value, "MemberList
 /**
  * Abstract base class that forms the root of the type hierarchy.
  */
-class Type
+class Type: private boost::noncopyable, public std::enable_shared_from_this<Type>
 {
 public:
-	Type() = default;
-	Type(Type const&) = delete;
-	Type(Type&&) = delete;
-	Type& operator=(Type const&) = delete;
-	Type& operator=(Type&&) = delete;
 	virtual ~Type() = default;
-
 	enum class Category
 	{
 		Address, Integer, RationalNumber, StringLiteral, Bool, FixedPoint, Array,
@@ -167,8 +156,20 @@ public:
 		InaccessibleDynamic
 	};
 
+	/// @{
+	/// @name Factory functions
+	/// Factory functions that convert an AST @ref TypeName to a Type.
+	static TypePointer fromElementaryTypeName(ElementaryTypeNameToken const& _type);
+	/// Converts a given elementary type name with optional data location
+	/// suffix " storage", " calldata" or " memory" to a type pointer. If suffix not given, defaults to " storage".
+	static TypePointer fromElementaryTypeName(std::string const& _name);
+	/// @}
+
+	/// Auto-detect the proper type for a literal. @returns an empty pointer if the literal does
+	/// not fit any type.
+	static TypePointer forLiteral(Literal const& _literal);
 	/// @returns a pointer to _a or _b if the other is implicitly convertible to it or nullptr otherwise
-	static TypePointer commonType(Type const* _a, Type const* _b);
+	static TypePointer commonType(TypePointer const& _a, TypePointer const& _b);
 
 	virtual Category category() const = 0;
 	/// @returns a valid solidity identifier such that two types should compare equal if and
@@ -188,21 +189,21 @@ public:
 	/// @returns an escaped identifier (will not contain any parenthesis or commas)
 	static std::string escapeIdentifier(std::string const& _identifier);
 
-	virtual BoolResult isImplicitlyConvertibleTo(Type const& _other) const { return *this == _other; }
-	virtual BoolResult isExplicitlyConvertibleTo(Type const& _convertTo) const
+	virtual bool isImplicitlyConvertibleTo(Type const& _other) const { return *this == _other; }
+	virtual bool isExplicitlyConvertibleTo(Type const& _convertTo) const
 	{
 		return isImplicitlyConvertibleTo(_convertTo);
 	}
 	/// @returns the resulting type of applying the given unary operator or an empty pointer if
 	/// this is not possible.
 	/// The default implementation does not allow any unary operator.
-	virtual TypeResult unaryOperatorResult(Token) const { return nullptr; }
+	virtual TypePointer unaryOperatorResult(Token) const { return TypePointer(); }
 	/// @returns the resulting type of applying the given binary operator or an empty pointer if
 	/// this is not possible.
 	/// The default implementation allows comparison operators if a common type exists
-	virtual TypeResult binaryOperatorResult(Token _operator, Type const* _other) const
+	virtual TypePointer binaryOperatorResult(Token _operator, TypePointer const& _other) const
 	{
-		return TokenTraits::isCompareOp(_operator) ? commonType(this, _other) : nullptr;
+		return TokenTraits::isCompareOp(_operator) ? commonType(shared_from_this(), _other) : TypePointer();
 	}
 
 	virtual bool operator==(Type const& _other) const { return category() == _other.category(); }
@@ -211,6 +212,7 @@ public:
 	/// @returns number of bytes used by this type when encoded for CALL. If it is a dynamic type,
 	/// returns the size of the pointer (usually 32). Returns 0 if the type cannot be encoded
 	/// in calldata.
+	/// @note: This should actually not be called on types, where isDynamicallyEncoded returns true.
 	/// If @a _padded then it is assumed that each element is padded to a multiple of 32 bytes.
 	virtual unsigned calldataEncodedSize(bool _padded) const { (void)_padded; return 0; }
 	/// @returns the size of this data type in bytes when stored in memory. For memory-reference
@@ -231,13 +233,6 @@ public:
 	/// In order to avoid computation at runtime of whether such moving is necessary, structs and
 	/// array data (not each element) always start a new slot.
 	virtual unsigned storageBytes() const { return 32; }
-	/// Returns true if the type is a value type that is left-aligned on the stack with a size of
-	/// storageBytes() bytes. Returns false if the type is a value type that is right-aligned on
-	/// the stack with a size of storageBytes() bytes. Asserts if it is not a value type or the
-	/// encoding is more complicated.
-	/// Signed integers are not considered "more complicated" even though they need to be
-	/// sign-extended.
-	virtual bool leftAligned() const { solAssert(false, "Alignment property of non-value type requested."); }
 	/// Returns true if the type can be stored in storage.
 	virtual bool canBeStored() const { return true; }
 	/// Returns false if the type cannot live outside the storage, i.e. if it includes some mapping.
@@ -253,14 +248,14 @@ public:
 	/// This returns the corresponding IntegerType or FixedPointType for RationalNumberType
 	/// and the pointer type for storage reference types.
 	/// Might return a null pointer if there is no fitting type.
-	virtual TypePointer mobileType() const { return this; }
+	virtual TypePointer mobileType() const { return shared_from_this(); }
 	/// @returns true if this is a non-value type and the data of this type is stored at the
 	/// given location.
 	virtual bool dataStoredIn(DataLocation) const { return false; }
 	/// @returns the type of a temporary during assignment to a variable of the given type.
 	/// Specifically, returns the requested itself if it can be dynamically allocated (or is a value type)
 	/// and the mobile type otherwise.
-	virtual TypePointer closestTemporaryType(Type const* _targetType) const
+	virtual TypePointer closestTemporaryType(TypePointer const& _targetType) const
 	{
 		return _targetType->dataStoredIn(DataLocation::Storage) ? mobileType() : _targetType;
 	}
@@ -293,7 +288,7 @@ public:
 	/// @returns a (simpler) type that is encoded in the same way for external function calls.
 	/// This for example returns address for contract types.
 	/// If there is no such type, returns an empty shared pointer.
-	virtual TypePointer encodingType() const { return nullptr; }
+	virtual TypePointer encodingType() const { return TypePointer(); }
 	/// @returns the encoding type used under the given circumstances for the type of an expression
 	/// when used for e.g. abi.encode(...) or the empty pointer if the object
 	/// cannot be encoded.
@@ -306,10 +301,10 @@ public:
 	/// If there is no such type, returns an empty shared pointer.
 	/// @param _inLibrary if set, returns types as used in a library, e.g. struct and contract types
 	/// are returned without modification.
-	virtual TypeResult interfaceType(bool /*_inLibrary*/) const { return nullptr; }
-
-	/// Clears all internally cached values (if any).
-	virtual void clearCache() const;
+	virtual TypePointer interfaceType(bool /*_inLibrary*/) const { return TypePointer(); }
+	/// @returns true iff this type can be passed on via calls (to libraries if _inLibrary is true),
+	/// should be have identical to !!interfaceType(_inLibrary) but might do optimizations.
+	virtual bool canBeUsedExternally(bool _inLibrary) const { return !!interfaceType(_inLibrary); }
 
 private:
 	/// @returns a member list containing all members added to this type by `using for` directives.
@@ -333,21 +328,23 @@ protected:
 class AddressType: public Type
 {
 public:
-	explicit AddressType(StateMutability _stateMutability);
+    static AddressType& address() { static std::shared_ptr<AddressType> addr(std::make_shared<AddressType>(StateMutability::NonPayable)); return *addr; }
+    static AddressType& addressPayable() { static std::shared_ptr<AddressType> addr(std::make_shared<AddressType>(StateMutability::Payable)); return *addr; }
 
 	Category category() const override { return Category::Address; }
 
+	explicit AddressType(StateMutability _stateMutability);
+
 	std::string richIdentifier() const override;
-	BoolResult isImplicitlyConvertibleTo(Type const& _other) const override;
-	BoolResult isExplicitlyConvertibleTo(Type const& _convertTo) const override;
-	TypeResult unaryOperatorResult(Token _operator) const override;
-	TypeResult binaryOperatorResult(Token _operator, Type const* _other) const override;
+	bool isImplicitlyConvertibleTo(Type const& _other) const override;
+	bool isExplicitlyConvertibleTo(Type const& _convertTo) const override;
+	TypePointer unaryOperatorResult(Token _operator) const override;
+	TypePointer binaryOperatorResult(Token _operator, TypePointer const& _other) const override;
 
 	bool operator==(Type const& _other) const override;
 
 	unsigned calldataEncodedSize(bool _padded = true) const override { return _padded ? 32 : 160 / 8; }
 	unsigned storageBytes() const override { return 160 / 8; }
-	bool leftAligned() const override { return false; }
 	bool isValueType() const override { return true; }
 
 	MemberList::MemberMap nativeMembers(ContractDefinition const*) const override;
@@ -357,8 +354,8 @@ public:
 
 	u256 literalValue(Literal const* _literal) const override;
 
-	TypePointer encodingType() const override { return this; }
-	TypeResult interfaceType(bool) const override { return this; }
+	TypePointer encodingType() const override { return shared_from_this(); }
+	TypePointer interfaceType(bool) const override { return shared_from_this(); }
 
 	StateMutability stateMutability(void) const { return m_stateMutability; }
 
@@ -377,27 +374,28 @@ public:
 		Unsigned, Signed
 	};
 
-	explicit IntegerType(unsigned _bits, Modifier _modifier = Modifier::Unsigned);
+	static IntegerType& uint256() { static std::shared_ptr<IntegerType> uint256(std::make_shared<IntegerType>(256)); return *uint256; }
 
 	Category category() const override { return Category::Integer; }
 
+	explicit IntegerType(unsigned _bits, Modifier _modifier = Modifier::Unsigned);
+
 	std::string richIdentifier() const override;
-	BoolResult isImplicitlyConvertibleTo(Type const& _convertTo) const override;
-	BoolResult isExplicitlyConvertibleTo(Type const& _convertTo) const override;
-	TypeResult unaryOperatorResult(Token _operator) const override;
-	TypeResult binaryOperatorResult(Token _operator, Type const* _other) const override;
+	bool isImplicitlyConvertibleTo(Type const& _convertTo) const override;
+	bool isExplicitlyConvertibleTo(Type const& _convertTo) const override;
+	TypePointer unaryOperatorResult(Token _operator) const override;
+	TypePointer binaryOperatorResult(Token _operator, TypePointer const& _other) const override;
 
 	bool operator==(Type const& _other) const override;
 
 	unsigned calldataEncodedSize(bool _padded = true) const override { return _padded ? 32 : m_bits / 8; }
 	unsigned storageBytes() const override { return m_bits / 8; }
-	bool leftAligned() const override { return false; }
 	bool isValueType() const override { return true; }
 
 	std::string toString(bool _short) const override;
 
-	TypePointer encodingType() const override { return this; }
-	TypeResult interfaceType(bool) const override { return this; }
+	TypePointer encodingType() const override { return shared_from_this(); }
+	TypePointer interfaceType(bool) const override { return shared_from_this(); }
 
 	unsigned numBits() const { return m_bits; }
 	bool isSigned() const { return m_modifier == Modifier::Signed; }
@@ -406,8 +404,8 @@ public:
 	bigint maxValue() const;
 
 private:
-	unsigned const m_bits;
-	Modifier const m_modifier;
+	unsigned m_bits;
+	Modifier m_modifier;
 };
 
 /**
@@ -420,27 +418,26 @@ public:
 	{
 		Unsigned, Signed
 	};
-
-	explicit FixedPointType(unsigned _totalBits, unsigned _fractionalDigits, Modifier _modifier = Modifier::Unsigned);
 	Category category() const override { return Category::FixedPoint; }
 
+	explicit FixedPointType(unsigned _totalBits, unsigned _fractionalDigits, Modifier _modifier = Modifier::Unsigned);
+
 	std::string richIdentifier() const override;
-	BoolResult isImplicitlyConvertibleTo(Type const& _convertTo) const override;
-	BoolResult isExplicitlyConvertibleTo(Type const& _convertTo) const override;
-	TypeResult unaryOperatorResult(Token _operator) const override;
-	TypeResult binaryOperatorResult(Token _operator, Type const* _other) const override;
+	bool isImplicitlyConvertibleTo(Type const& _convertTo) const override;
+	bool isExplicitlyConvertibleTo(Type const& _convertTo) const override;
+	TypePointer unaryOperatorResult(Token _operator) const override;
+	TypePointer binaryOperatorResult(Token _operator, TypePointer const& _other) const override;
 
 	bool operator==(Type const& _other) const override;
 
 	unsigned calldataEncodedSize(bool _padded = true) const override { return _padded ? 32 : m_totalBits / 8; }
 	unsigned storageBytes() const override { return m_totalBits / 8; }
-	bool leftAligned() const override { return false; }
 	bool isValueType() const override { return true; }
 
 	std::string toString(bool _short) const override;
 
-	TypePointer encodingType() const override { return this; }
-	TypeResult interfaceType(bool) const override { return this; }
+	TypePointer encodingType() const override { return shared_from_this(); }
+	TypePointer interfaceType(bool) const override { return shared_from_this(); }
 
 	/// Number of bits used for this type in total.
 	unsigned numBits() const { return m_totalBits; }
@@ -455,7 +452,7 @@ public:
 	bigint minIntegerValue() const;
 
 	/// @returns the smallest integer type that can hold this type with fractional parts shifted to integers.
-	IntegerType const* asIntegerType() const;
+	std::shared_ptr<IntegerType> asIntegerType() const;
 
 private:
 	unsigned m_totalBits;
@@ -471,16 +468,19 @@ private:
 class RationalNumberType: public Type
 {
 public:
-	explicit RationalNumberType(rational const& _value, Type const* _compatibleBytesType = nullptr):
-		m_value(_value), m_compatibleBytesType(_compatibleBytesType)
-	{}
 
 	Category category() const override { return Category::RationalNumber; }
 
-	BoolResult isImplicitlyConvertibleTo(Type const& _convertTo) const override;
-	BoolResult isExplicitlyConvertibleTo(Type const& _convertTo) const override;
-	TypeResult unaryOperatorResult(Token _operator) const override;
-	TypeResult binaryOperatorResult(Token _operator, Type const* _other) const override;
+	static TypePointer forLiteral(Literal const& _literal);
+
+	explicit RationalNumberType(rational const& _value, TypePointer const& _compatibleBytesType = TypePointer()):
+		m_value(_value), m_compatibleBytesType(_compatibleBytesType)
+	{}
+
+	bool isImplicitlyConvertibleTo(Type const& _convertTo) const override;
+	bool isExplicitlyConvertibleTo(Type const& _convertTo) const override;
+	TypePointer unaryOperatorResult(Token _operator) const override;
+	TypePointer binaryOperatorResult(Token _operator, TypePointer const& _other) const override;
 
 	std::string richIdentifier() const override;
 	bool operator==(Type const& _other) const override;
@@ -493,11 +493,11 @@ public:
 	TypePointer mobileType() const override;
 
 	/// @returns the smallest integer type that can hold the value or an empty pointer if not possible.
-	IntegerType const* integerType() const;
+	std::shared_ptr<IntegerType const> integerType() const;
 	/// @returns the smallest fixed type that can  hold the value or incurs the least precision loss,
 	/// unless the value was truncated, then a suitable type will be chosen to indicate such event.
 	/// If the integer part does not fit, returns an empty pointer.
-	FixedPointType const* fixedPointType() const;
+	std::shared_ptr<FixedPointType const> fixedPointType() const;
 
 	/// @returns true if the value is not an integer.
 	bool isFractional() const { return m_value.denominator() != 1; }
@@ -508,15 +508,15 @@ public:
 	/// @returns true if the value is zero.
 	bool isZero() const { return m_value == 0; }
 
-	/// @returns true if the literal is a valid integer.
-	static std::tuple<bool, rational> isValidLiteral(Literal const& _literal);
-
 private:
 	rational m_value;
 
 	/// Bytes type to which the rational can be explicitly converted.
 	/// Empty for all rationals that are not directly parsed from hex literals.
 	TypePointer m_compatibleBytesType;
+
+	/// @returns true if the literal is a valid integer.
+	static std::tuple<bool, rational> isValidLiteral(Literal const& _literal);
 
 	/// @returns true if the literal is a valid rational number.
 	static std::tuple<bool, rational> parseRational(std::string const& _value);
@@ -532,15 +532,14 @@ private:
 class StringLiteralType: public Type
 {
 public:
-	explicit StringLiteralType(Literal const& _literal);
-	explicit StringLiteralType(std::string const& _value);
-
 	Category category() const override { return Category::StringLiteral; }
 
-	BoolResult isImplicitlyConvertibleTo(Type const& _convertTo) const override;
-	TypeResult binaryOperatorResult(Token, Type const*) const override
+	explicit StringLiteralType(Literal const& _literal);
+
+	bool isImplicitlyConvertibleTo(Type const& _convertTo) const override;
+	TypePointer binaryOperatorResult(Token, TypePointer const&) const override
 	{
-		return nullptr;
+		return TypePointer();
 	}
 
 	std::string richIdentifier() const override;
@@ -567,26 +566,25 @@ private:
 class FixedBytesType: public Type
 {
 public:
-	explicit FixedBytesType(unsigned _bytes);
-
 	Category category() const override { return Category::FixedBytes; }
 
-	BoolResult isImplicitlyConvertibleTo(Type const& _convertTo) const override;
-	BoolResult isExplicitlyConvertibleTo(Type const& _convertTo) const override;
+	explicit FixedBytesType(unsigned _bytes);
+
+	bool isImplicitlyConvertibleTo(Type const& _convertTo) const override;
+	bool isExplicitlyConvertibleTo(Type const& _convertTo) const override;
 	std::string richIdentifier() const override;
 	bool operator==(Type const& _other) const override;
-	TypeResult unaryOperatorResult(Token _operator) const override;
-	TypeResult binaryOperatorResult(Token _operator, Type const* _other) const override;
+	TypePointer unaryOperatorResult(Token _operator) const override;
+	TypePointer binaryOperatorResult(Token _operator, TypePointer const& _other) const override;
 
 	unsigned calldataEncodedSize(bool _padded) const override { return _padded && m_bytes > 0 ? 32 : m_bytes; }
 	unsigned storageBytes() const override { return m_bytes; }
-	bool leftAligned() const override { return true; }
 	bool isValueType() const override { return true; }
 
 	std::string toString(bool) const override { return "bytes" + dev::toString(m_bytes); }
 	MemberList::MemberMap nativeMembers(ContractDefinition const*) const override;
-	TypePointer encodingType() const override { return this; }
-	TypeResult interfaceType(bool) const override { return this; }
+	TypePointer encodingType() const override { return shared_from_this(); }
+	TypePointer interfaceType(bool) const override { return shared_from_this(); }
 
 	unsigned numBytes() const { return m_bytes; }
 
@@ -600,20 +598,20 @@ private:
 class BoolType: public Type
 {
 public:
+	BoolType() {}
 	Category category() const override { return Category::Bool; }
 	std::string richIdentifier() const override { return "t_bool"; }
-	TypeResult unaryOperatorResult(Token _operator) const override;
-	TypeResult binaryOperatorResult(Token _operator, Type const* _other) const override;
+	TypePointer unaryOperatorResult(Token _operator) const override;
+	TypePointer binaryOperatorResult(Token _operator, TypePointer const& _other) const override;
 
 	unsigned calldataEncodedSize(bool _padded) const override{ return _padded ? 32 : 1; }
 	unsigned storageBytes() const override { return 1; }
-	bool leftAligned() const override { return false; }
 	bool isValueType() const override { return true; }
 
 	std::string toString(bool) const override { return "bool"; }
 	u256 literalValue(Literal const* _literal) const override;
-	TypePointer encodingType() const override { return this; }
-	TypeResult interfaceType(bool) const override { return this; }
+	TypePointer encodingType() const override { return shared_from_this(); }
+	TypePointer interfaceType(bool) const override { return shared_from_this(); }
 };
 
 /**
@@ -622,24 +620,22 @@ public:
  */
 class ReferenceType: public Type
 {
-protected:
-	explicit ReferenceType(DataLocation _location): m_location(_location) {}
-
 public:
+	explicit ReferenceType(DataLocation _location): m_location(_location) {}
 	DataLocation location() const { return m_location; }
 
-	TypeResult unaryOperatorResult(Token _operator) const override;
-	TypeResult binaryOperatorResult(Token, Type const*) const override
+	TypePointer unaryOperatorResult(Token _operator) const override;
+	TypePointer binaryOperatorResult(Token, TypePointer const&) const override
 	{
-		return nullptr;
+		return TypePointer();
 	}
 	unsigned memoryHeadSize() const override { return 32; }
 
 	/// @returns a copy of this type with location (recursively) changed to @a _location,
 	/// whereas isPointer is only shallowly changed - the deep copy is always a bound reference.
-	virtual std::unique_ptr<ReferenceType> copyForLocation(DataLocation _location, bool _isPointer) const = 0;
+	virtual TypePointer copyForLocation(DataLocation _location, bool _isPointer) const = 0;
 
-	TypePointer mobileType() const override { return withLocation(m_location, true); }
+	TypePointer mobileType() const override { return copyForLocation(m_location, true); }
 	bool dataStoredIn(DataLocation _location) const override { return m_location == _location; }
 	bool hasSimpleZeroValueInMemory() const override { return false; }
 
@@ -654,10 +650,13 @@ public:
 		return location() == _other.location() && isPointer() == _other.isPointer();
 	}
 
-	Type const* withLocation(DataLocation _location, bool _isPointer) const;
+	/// @returns a copy of @a _type having the same location as this (and is not a pointer type)
+	/// if _type is a reference type and an unmodified copy of _type otherwise.
+	/// This function is mostly useful to modify inner types appropriately.
+	static TypePointer copyForLocationIfReference(DataLocation _location, TypePointer const& _type);
 
 protected:
-	Type const* copyForLocationIfReference(Type const* _type) const;
+	TypePointer copyForLocationIfReference(TypePointer const& _type) const;
 	/// @returns a human-readable description of the reference part of the type.
 	std::string stringForReferencePart() const;
 	/// @returns the suffix computed from the reference part to be used by identifier();
@@ -677,30 +676,36 @@ protected:
 class ArrayType: public ReferenceType
 {
 public:
-	/// Constructor for a byte array ("bytes") and string.
-	explicit ArrayType(DataLocation _location, bool _isString = false);
+	static ArrayType& bytesMemory() { static std::shared_ptr<ArrayType> addr(std::make_shared<ArrayType>(DataLocation::Memory)); return *addr; }
+	static ArrayType& stringMemory() { static std::shared_ptr<ArrayType> addr(std::make_shared<ArrayType>(DataLocation::Memory, true)); return *addr; }
 
+	Category category() const override { return Category::Array; }
+
+	/// Constructor for a byte array ("bytes") and string.
+	explicit ArrayType(DataLocation _location, bool _isString = false):
+		ReferenceType(_location),
+		m_arrayKind(_isString ? ArrayKind::String : ArrayKind::Bytes),
+		m_baseType(std::make_shared<FixedBytesType>(1))
+	{
+	}
 	/// Constructor for a dynamically sized array type ("type[]")
-	ArrayType(DataLocation _location, Type const* _baseType):
+	ArrayType(DataLocation _location, TypePointer const& _baseType):
 		ReferenceType(_location),
 		m_baseType(copyForLocationIfReference(_baseType))
 	{
 	}
-
 	/// Constructor for a fixed-size array type ("type[20]")
-	ArrayType(DataLocation _location, Type const* _baseType, u256 const& _length):
+	ArrayType(DataLocation _location, TypePointer const& _baseType, u256 const& _length):
 		ReferenceType(_location),
 		m_baseType(copyForLocationIfReference(_baseType)),
 		m_hasDynamicLength(false),
 		m_length(_length)
 	{}
 
-	Category category() const override { return Category::Array; }
-
-	BoolResult isImplicitlyConvertibleTo(Type const& _convertTo) const override;
-	BoolResult isExplicitlyConvertibleTo(Type const& _convertTo) const override;
+	bool isImplicitlyConvertibleTo(Type const& _convertTo) const override;
+	bool isExplicitlyConvertibleTo(Type const& _convertTo) const override;
 	std::string richIdentifier() const override;
-	bool operator==(Type const& _other) const override;
+	bool operator==(const Type& _other) const override;
 	unsigned calldataEncodedSize(bool _padded) const override;
 	bool isDynamicallySized() const override { return m_hasDynamicLength; }
 	bool isDynamicallyEncoded() const override;
@@ -713,7 +718,8 @@ public:
 	MemberList::MemberMap nativeMembers(ContractDefinition const* _currentScope) const override;
 	TypePointer encodingType() const override;
 	TypePointer decodingType() const override;
-	TypeResult interfaceType(bool _inLibrary) const override;
+	TypePointer interfaceType(bool _inLibrary) const override;
+	bool canBeUsedExternally(bool _inLibrary) const override;
 
 	/// @returns true if this is valid to be stored in calldata
 	bool validForCalldata() const;
@@ -722,20 +728,11 @@ public:
 	bool isByteArray() const { return m_arrayKind != ArrayKind::Ordinary; }
 	/// @returns true if this is a string
 	bool isString() const { return m_arrayKind == ArrayKind::String; }
-	Type const* baseType() const { solAssert(!!m_baseType, ""); return m_baseType; }
+	TypePointer const& baseType() const { solAssert(!!m_baseType, ""); return m_baseType;}
 	u256 const& length() const { return m_length; }
 	u256 memorySize() const;
 
-	std::unique_ptr<ReferenceType> copyForLocation(DataLocation _location, bool _isPointer) const override;
-
-	/// The offset to advance in calldata to move from one array element to the next.
-	unsigned calldataStride() const { return isByteArray() ? 1 : m_baseType->calldataEncodedSize(); }
-	/// The offset to advance in memory to move from one array element to the next.
-	unsigned memoryStride() const { return isByteArray() ? 1 : m_baseType->memoryHeadSize(); }
-	/// The offset to advance in storage to move from one array element to the next.
-	unsigned storageStride() const { return isByteArray() ? 1 : m_baseType->storageBytes(); }
-
-	void clearCache() const override;
+	TypePointer copyForLocation(DataLocation _location, bool _isPointer) const override;
 
 private:
 	/// String is interpreted as a subtype of Bytes.
@@ -745,11 +742,9 @@ private:
 
 	///< Byte arrays ("bytes") and strings have different semantics from ordinary arrays.
 	ArrayKind m_arrayKind = ArrayKind::Ordinary;
-	Type const* m_baseType;
+	TypePointer m_baseType;
 	bool m_hasDynamicLength = true;
 	u256 m_length;
-	mutable boost::optional<TypeResult> m_interfaceType;
-	mutable boost::optional<TypeResult> m_interfaceType_library;
 };
 
 /**
@@ -758,15 +753,14 @@ private:
 class ContractType: public Type
 {
 public:
+	Category category() const override { return Category::Contract; }
 	explicit ContractType(ContractDefinition const& _contract, bool _super = false):
 		m_contract(_contract), m_super(_super) {}
-
-	Category category() const override { return Category::Contract; }
 	/// Contracts can be implicitly converted only to base contracts.
-	BoolResult isImplicitlyConvertibleTo(Type const& _convertTo) const override;
+	bool isImplicitlyConvertibleTo(Type const& _convertTo) const override;
 	/// Contracts can only be explicitly converted to address types and base contracts.
-	BoolResult isExplicitlyConvertibleTo(Type const& _convertTo) const override;
-	TypeResult unaryOperatorResult(Token _operator) const override;
+	bool isExplicitlyConvertibleTo(Type const& _convertTo) const override;
+	TypePointer unaryOperatorResult(Token _operator) const override;
 	std::string richIdentifier() const override;
 	bool operator==(Type const& _other) const override;
 	unsigned calldataEncodedSize(bool _padded ) const override
@@ -775,7 +769,6 @@ public:
 		return encodingType()->calldataEncodedSize(_padded);
 	}
 	unsigned storageBytes() const override { solAssert(!isSuper(), ""); return 20; }
-	bool leftAligned() const override { solAssert(!isSuper(), ""); return false; }
 	bool canLiveOutsideStorage() const override { return !isSuper(); }
 	unsigned sizeOnStack() const override { return m_super ? 0 : 1; }
 	bool isValueType() const override { return !isSuper(); }
@@ -783,17 +776,19 @@ public:
 	std::string canonicalName() const override;
 
 	MemberList::MemberMap nativeMembers(ContractDefinition const* _currentScope) const override;
-
-	Type const* encodingType() const override;
-
-	TypeResult interfaceType(bool _inLibrary) const override
+	TypePointer encodingType() const override
 	{
 		if (isSuper())
-			return nullptr;
-		return _inLibrary ? this : encodingType();
+			return TypePointer{};
+		return std::make_shared<AddressType>(isPayable() ? StateMutability::Payable : StateMutability::NonPayable);
+	}
+	TypePointer interfaceType(bool _inLibrary) const override
+	{
+		if (isSuper())
+			return TypePointer{};
+		return _inLibrary ? shared_from_this() : encodingType();
 	}
 
-	/// See documentation of m_super
 	bool isSuper() const { return m_super; }
 
 	// @returns true if and only if the contract has a payable fallback function
@@ -802,7 +797,7 @@ public:
 	ContractDefinition const& contractDefinition() const { return m_contract; }
 
 	/// Returns the function type of the constructor modified to return an object of the contract's type.
-	FunctionType const* newExpressionType() const;
+	FunctionTypePointer const& newExpressionType() const;
 
 	/// @returns a list of all state variables (including inherited) of the contract and their
 	/// offsets in storage.
@@ -810,10 +805,11 @@ public:
 
 private:
 	ContractDefinition const& m_contract;
-	/// If true, this is a special "super" type of m_contract containing only members that m_contract inherited
+	/// If true, it is the "super" type of the current contract, i.e. it contains only inherited
+	/// members.
 	bool m_super = false;
 	/// Type of the constructor, @see constructorType. Lazily initialized.
-	mutable FunctionType const* m_constructorType = nullptr;
+	mutable FunctionTypePointer m_constructorType;
 };
 
 /**
@@ -822,11 +818,10 @@ private:
 class StructType: public ReferenceType
 {
 public:
+	Category category() const override { return Category::Struct; }
 	explicit StructType(StructDefinition const& _struct, DataLocation _location = DataLocation::Storage):
 		ReferenceType(_location), m_struct(_struct) {}
-
-	Category category() const override { return Category::Struct; }
-	BoolResult isImplicitlyConvertibleTo(Type const& _convertTo) const override;
+	bool isImplicitlyConvertibleTo(const Type& _convertTo) const override;
 	std::string richIdentifier() const override;
 	bool operator==(Type const& _other) const override;
 	unsigned calldataEncodedSize(bool _padded) const override;
@@ -837,32 +832,24 @@ public:
 	std::string toString(bool _short) const override;
 
 	MemberList::MemberMap nativeMembers(ContractDefinition const* _currentScope) const override;
-
-	Type const* encodingType() const override;
-	TypeResult interfaceType(bool _inLibrary) const override;
-
-	bool recursive() const
+	TypePointer encodingType() const override
 	{
-		if (m_recursive.is_initialized())
-			return m_recursive.get();
-
-		interfaceType(false);
-
-		return m_recursive.get();
+		return location() == DataLocation::Storage ? std::make_shared<IntegerType>(256) : shared_from_this();
 	}
+	TypePointer interfaceType(bool _inLibrary) const override;
+	bool canBeUsedExternally(bool _inLibrary) const override;
 
-	std::unique_ptr<ReferenceType> copyForLocation(DataLocation _location, bool _isPointer) const override;
+	TypePointer copyForLocation(DataLocation _location, bool _isPointer) const override;
 
 	std::string canonicalName() const override;
 	std::string signatureInExternalFunction(bool _structsByName) const override;
 
 	/// @returns a function that performs the type conversion between a list of struct members
 	/// and a memory struct of this type.
-	FunctionType const* constructorType() const;
+	FunctionTypePointer constructorType() const;
 
 	std::pair<u256, unsigned> const& storageOffsetsOfMember(std::string const& _name) const;
 	u256 memoryOffsetOfMember(std::string const& _name) const;
-	unsigned calldataOffsetOfMember(std::string const& _name) const;
 
 	StructDefinition const& structDefinition() const { return m_struct; }
 
@@ -871,13 +858,13 @@ public:
 	/// @returns the set of all members that are removed in the memory version (typically mappings).
 	std::set<std::string> membersMissingInMemory() const;
 
-	void clearCache() const override;
+	/// @returns true if the same struct is used recursively in one of its members. Only
+	/// analyses the "memory" representation, i.e. mappings are ignored in all structs.
+	bool recursive() const;
 
 private:
 	StructDefinition const& m_struct;
-	// Caches for interfaceType(bool)
-	mutable boost::optional<TypeResult> m_interfaceType;
-	mutable boost::optional<TypeResult> m_interfaceType_library;
+	/// Cache for the recursive() function.
 	mutable boost::optional<bool> m_recursive;
 };
 
@@ -887,10 +874,9 @@ private:
 class EnumType: public Type
 {
 public:
-	explicit EnumType(EnumDefinition const& _enum): m_enum(_enum) {}
-
 	Category category() const override { return Category::Enum; }
-	TypeResult unaryOperatorResult(Token _operator) const override;
+	explicit EnumType(EnumDefinition const& _enum): m_enum(_enum) {}
+	TypePointer unaryOperatorResult(Token _operator) const override;
 	std::string richIdentifier() const override;
 	bool operator==(Type const& _other) const override;
 	unsigned calldataEncodedSize(bool _padded) const override
@@ -898,17 +884,19 @@ public:
 		return encodingType()->calldataEncodedSize(_padded);
 	}
 	unsigned storageBytes() const override;
-	bool leftAligned() const override { return false; }
 	bool canLiveOutsideStorage() const override { return true; }
 	std::string toString(bool _short) const override;
 	std::string canonicalName() const override;
 	bool isValueType() const override { return true; }
 
-	BoolResult isExplicitlyConvertibleTo(Type const& _convertTo) const override;
-	TypePointer encodingType() const override;
-	TypeResult interfaceType(bool _inLibrary) const override
+	bool isExplicitlyConvertibleTo(Type const& _convertTo) const override;
+	TypePointer encodingType() const override
 	{
-		return _inLibrary ? this : encodingType();
+		return std::make_shared<IntegerType>(8 * int(storageBytes()));
+	}
+	TypePointer interfaceType(bool _inLibrary) const override
+	{
+		return _inLibrary ? shared_from_this() : encodingType();
 	}
 
 	EnumDefinition const& enumDefinition() const { return m_enum; }
@@ -927,14 +915,12 @@ private:
 class TupleType: public Type
 {
 public:
-	explicit TupleType(std::vector<TypePointer> _types = {}): m_components(std::move(_types)) {}
-
 	Category category() const override { return Category::Tuple; }
-
-	BoolResult isImplicitlyConvertibleTo(Type const& _other) const override;
+	explicit TupleType(std::vector<TypePointer> const& _types = std::vector<TypePointer>()): m_components(_types) {}
+	bool isImplicitlyConvertibleTo(Type const& _other) const override;
 	std::string richIdentifier() const override;
 	bool operator==(Type const& _other) const override;
-	TypeResult binaryOperatorResult(Token, Type const*) const override { return nullptr; }
+	TypePointer binaryOperatorResult(Token, TypePointer const&) const override { return TypePointer(); }
 	std::string toString(bool) const override;
 	bool canBeStored() const override { return false; }
 	u256 storageSize() const override;
@@ -943,7 +929,7 @@ public:
 	bool hasSimpleZeroValueInMemory() const override { return false; }
 	TypePointer mobileType() const override;
 	/// Converts components to their temporary types and performs some wildcard matching.
-	TypePointer closestTemporaryType(Type const* _targetType) const override;
+	TypePointer closestTemporaryType(TypePointer const& _targetType) const override;
 
 	std::vector<TypePointer> const& components() const { return m_components; }
 
@@ -1002,8 +988,9 @@ public:
 		ABIEncodeWithSignature,
 		ABIDecode,
 		GasLeft, ///< gasleft()
-		MetaType ///< type(...)
 	};
+
+	Category category() const override { return Category::Function; }
 
 	/// Creates the type of a function.
 	explicit FunctionType(FunctionDefinition const& _function, bool _isInternal = true);
@@ -1023,14 +1010,17 @@ public:
 	): FunctionType(
 		parseElementaryTypeVector(_parameterTypes),
 		parseElementaryTypeVector(_returnParameterTypes),
-		strings(_parameterTypes.size(), ""),
-		strings(_returnParameterTypes.size(), ""),
+		strings(),
+		strings(),
 		_kind,
 		_arbitraryParameters,
 		_stateMutability
 	)
 	{
 	}
+
+	/// @returns the type of the "new Contract" function, i.e. basically the constructor.
+	static FunctionTypePointer newExpressionType(ContractDefinition const& _contract);
 
 	/// Detailed constructor, use with care.
 	FunctionType(
@@ -1059,23 +1049,10 @@ public:
 		m_declaration(_declaration)
 	{
 		solAssert(
-			m_parameterNames.size() == m_parameterTypes.size(),
-			"Parameter names list must match parameter types list!"
-		);
-		solAssert(
-			m_returnParameterNames.size() == m_returnParameterTypes.size(),
-			"Return parameter names list must match return parameter types list!"
-		);
-		solAssert(
 			!m_bound || !m_parameterTypes.empty(),
 			"Attempted construction of bound function without self type"
 		);
 	}
-
-	Category category() const override { return Category::Function; }
-
-	/// @returns the type of the "new Contract" function, i.e. basically the constructor.
-	static FunctionTypePointer newExpressionType(ContractDefinition const& _contract);
 
 	TypePointers parameterTypes() const;
 	std::vector<std::string> parameterNames() const;
@@ -1085,20 +1062,19 @@ public:
 	TypePointers returnParameterTypesWithoutDynamicTypes() const;
 	std::vector<std::string> const& returnParameterNames() const { return m_returnParameterNames; }
 	/// @returns the "self" parameter type for a bound function
-	Type const* selfType() const;
+	TypePointer const& selfType() const;
 
 	std::string richIdentifier() const override;
 	bool operator==(Type const& _other) const override;
-	BoolResult isImplicitlyConvertibleTo(Type const& _convertTo) const override;
-	BoolResult isExplicitlyConvertibleTo(Type const& _convertTo) const override;
-	TypeResult unaryOperatorResult(Token _operator) const override;
-	TypeResult binaryOperatorResult(Token, Type const*) const override;
+	bool isImplicitlyConvertibleTo(Type const& _convertTo) const override;
+	bool isExplicitlyConvertibleTo(Type const& _convertTo) const override;
+	TypePointer unaryOperatorResult(Token _operator) const override;
+	TypePointer binaryOperatorResult(Token, TypePointer const&) const override;
 	std::string canonicalName() const override;
 	std::string toString(bool _short) const override;
 	unsigned calldataEncodedSize(bool _padded) const override;
 	bool canBeStored() const override { return m_kind == Kind::Internal || m_kind == Kind::External; }
 	u256 storageSize() const override;
-	bool leftAligned() const override;
 	unsigned storageBytes() const override;
 	bool isValueType() const override { return true; }
 	bool canLiveOutsideStorage() const override { return m_kind == Kind::Internal || m_kind == Kind::External; }
@@ -1106,7 +1082,7 @@ public:
 	bool hasSimpleZeroValueInMemory() const override { return false; }
 	MemberList::MemberMap nativeMembers(ContractDefinition const* _currentScope) const override;
 	TypePointer encodingType() const override;
-	TypeResult interfaceType(bool _inLibrary) const override;
+	TypePointer interfaceType(bool _inLibrary) const override;
 
 	/// @returns TypePointer of a new FunctionType object. All input/return parameters are an
 	/// appropriate external types (i.e. the interfaceType()s) of input/return parameters of
@@ -1115,15 +1091,11 @@ public:
 	/// external type.
 	FunctionTypePointer interfaceFunctionType() const;
 
-	/// @returns true if this function can take the given arguments (possibly
+	/// @returns true if this function can take the given argument types (possibly
 	/// after implicit conversion).
 	/// @param _selfType if the function is bound, this has to be supplied and is the type of the
 	/// expression the function is called on.
-	bool canTakeArguments(
-		FuncCallArguments const& _arguments,
-		Type const* _selfType = nullptr
-	) const;
-
+	bool canTakeArguments(TypePointers const& _arguments, TypePointer const& _selfType = TypePointer()) const;
 	/// @returns true if the types of parameters are equal (does not check return parameter types)
 	bool hasEqualParameterTypes(FunctionType const& _other) const;
 	/// @returns true iff the return types are equal (does not check parameter types)
@@ -1217,25 +1189,30 @@ private:
 class MappingType: public Type
 {
 public:
-	MappingType(Type const* _keyType, Type const* _valueType):
-		m_keyType(_keyType), m_valueType(_valueType) {}
-
 	Category category() const override { return Category::Mapping; }
+	MappingType(TypePointer const& _keyType, TypePointer const& _valueType):
+		m_keyType(_keyType), m_valueType(_valueType) {}
 
 	std::string richIdentifier() const override;
 	bool operator==(Type const& _other) const override;
 	std::string toString(bool _short) const override;
 	std::string canonicalName() const override;
 	bool canLiveOutsideStorage() const override { return false; }
-	TypeResult binaryOperatorResult(Token, Type const*) const override { return nullptr; }
-	Type const* encodingType() const override;
-	TypeResult interfaceType(bool _inLibrary) const override;
+	TypePointer binaryOperatorResult(Token, TypePointer const&) const override { return TypePointer(); }
+	TypePointer encodingType() const override
+	{
+		return std::make_shared<IntegerType>(256);
+	}
+	TypePointer interfaceType(bool _inLibrary) const override
+	{
+		return _inLibrary ? shared_from_this() : TypePointer();
+	}
 	bool dataStoredIn(DataLocation _location) const override { return _location == DataLocation::Storage; }
 	/// Cannot be stored in memory, but just in case.
 	bool hasSimpleZeroValueInMemory() const override { solAssert(false, ""); }
 
-	Type const* keyType() const { return m_keyType; }
-	Type const* valueType() const { return m_valueType; }
+	TypePointer const& keyType() const { return m_keyType; }
+	TypePointer const& valueType() const { return m_valueType; }
 
 private:
 	TypePointer m_keyType;
@@ -1250,12 +1227,11 @@ private:
 class TypeType: public Type
 {
 public:
-	explicit TypeType(Type const* _actualType): m_actualType(_actualType) {}
-
 	Category category() const override { return Category::TypeType; }
-	Type const* actualType() const { return m_actualType; }
+	explicit TypeType(TypePointer const& _actualType): m_actualType(_actualType) {}
+	TypePointer const& actualType() const { return m_actualType; }
 
-	TypeResult binaryOperatorResult(Token, Type const*) const override { return nullptr; }
+	TypePointer binaryOperatorResult(Token, TypePointer const&) const override { return TypePointer(); }
 	std::string richIdentifier() const override;
 	bool operator==(Type const& _other) const override;
 	bool canBeStored() const override { return false; }
@@ -1277,11 +1253,10 @@ private:
 class ModifierType: public Type
 {
 public:
+	Category category() const override { return Category::Modifier; }
 	explicit ModifierType(ModifierDefinition const& _modifier);
 
-	Category category() const override { return Category::Modifier; }
-
-	TypeResult binaryOperatorResult(Token, Type const*) const override { return nullptr; }
+	TypePointer binaryOperatorResult(Token, TypePointer const&) const override { return TypePointer(); }
 	bool canBeStored() const override { return false; }
 	u256 storageSize() const override;
 	bool canLiveOutsideStorage() const override { return false; }
@@ -1303,11 +1278,11 @@ private:
 class ModuleType: public Type
 {
 public:
-	explicit ModuleType(SourceUnit const& _source): m_sourceUnit(_source) {}
-
 	Category category() const override { return Category::Module; }
 
-	TypeResult binaryOperatorResult(Token, Type const*) const override { return nullptr; }
+	explicit ModuleType(SourceUnit const& _source): m_sourceUnit(_source) {}
+
+	TypePointer binaryOperatorResult(Token, TypePointer const&) const override { return TypePointer(); }
 	std::string richIdentifier() const override;
 	bool operator==(Type const& _other) const override;
 	bool canBeStored() const override { return false; }
@@ -1323,28 +1298,20 @@ private:
 };
 
 /**
- * Special type for magic variables (block, msg, tx, type(...)), similar to a struct but without any reference.
+ * Special type for magic variables (block, msg, tx), similar to a struct but without any reference
+ * (it always references a global singleton by name).
  */
 class MagicType: public Type
 {
 public:
-	enum class Kind {
-		Block, ///< "block"
-		Message, ///< "msg"
-		Transaction, ///< "tx"
-		ABI, ///< "abi"
-		MetaType ///< "type(...)"
-	};
-
-public:
-	explicit MagicType(Kind _kind): m_kind(_kind) {}
-	explicit MagicType(Type const* _metaTypeArg): m_kind{Kind::MetaType}, m_typeArgument{_metaTypeArg} {}
-
+	enum class Kind { Block, Message, Transaction, ABI };
 	Category category() const override { return Category::Magic; }
 
-	TypeResult binaryOperatorResult(Token, Type const*) const override
+	explicit MagicType(Kind _kind): m_kind(_kind) {}
+
+	TypePointer binaryOperatorResult(Token, TypePointer const&) const override
 	{
-		return nullptr;
+		return TypePointer();
 	}
 
 	std::string richIdentifier() const override;
@@ -1359,12 +1326,8 @@ public:
 
 	Kind kind() const { return m_kind; }
 
-	TypePointer typeArgument() const;
-
 private:
 	Kind m_kind;
-	/// Contract type used for contract metadata magic.
-	TypePointer m_typeArgument;
 };
 
 /**
@@ -1377,9 +1340,9 @@ public:
 	Category category() const override { return Category::InaccessibleDynamic; }
 
 	std::string richIdentifier() const override { return "t_inaccessible"; }
-	BoolResult isImplicitlyConvertibleTo(Type const&) const override { return false; }
-	BoolResult isExplicitlyConvertibleTo(Type const&) const override { return false; }
-	TypeResult binaryOperatorResult(Token, Type const*) const override { return nullptr; }
+	bool isImplicitlyConvertibleTo(Type const&) const override { return false; }
+	bool isExplicitlyConvertibleTo(Type const&) const override { return false; }
+	TypePointer binaryOperatorResult(Token, TypePointer const&) const override { return TypePointer(); }
 	unsigned calldataEncodedSize(bool _padded) const override { (void)_padded; return 32; }
 	bool canBeStored() const override { return false; }
 	bool canLiveOutsideStorage() const override { return false; }
@@ -1387,7 +1350,7 @@ public:
 	unsigned sizeOnStack() const override { return 1; }
 	bool hasSimpleZeroValueInMemory() const override { solAssert(false, ""); }
 	std::string toString(bool) const override { return "inaccessible dynamic type"; }
-	TypePointer decodingType() const override;
+	TypePointer decodingType() const override { return std::make_shared<IntegerType>(256); }
 };
 
 }

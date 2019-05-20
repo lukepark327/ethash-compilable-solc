@@ -5,3 +5,5 @@ contract derived is root, inter2, inter1 {
     function g() public { f(); rootFunction(); }
 }
 // ----
+// Warning: (16-49): Function state mutability can be restricted to pure
+// Warning: (129-151): Function state mutability can be restricted to pure

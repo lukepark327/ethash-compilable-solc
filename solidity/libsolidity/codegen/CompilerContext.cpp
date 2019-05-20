@@ -21,23 +21,18 @@
  */
 
 #include <libsolidity/codegen/CompilerContext.h>
-
+#include <libsolidity/codegen/CompilerUtils.h>
 #include <libsolidity/ast/AST.h>
 #include <libsolidity/codegen/Compiler.h>
-#include <libsolidity/codegen/CompilerUtils.h>
 #include <libsolidity/interface/Version.h>
-
+#include <liblangutil/SourceReferenceFormatter.h>
 #include <libyul/AsmParser.h>
+#include <libyul/AsmCodeGen.h>
 #include <libyul/AsmAnalysis.h>
 #include <libyul/AsmAnalysisInfo.h>
-#include <libyul/backends/evm/AsmCodeGen.h>
-#include <libyul/backends/evm/EVMDialect.h>
-#include <libyul/optimiser/Suite.h>
 #include <libyul/YulString.h>
-
 #include <liblangutil/ErrorReporter.h>
 #include <liblangutil/Scanner.h>
-#include <liblangutil/SourceReferenceFormatter.h>
 
 #include <boost/algorithm/string/replace.hpp>
 
@@ -53,9 +48,11 @@
 
 using namespace std;
 using namespace langutil;
-using namespace dev::eth;
-using namespace dev;
-using namespace dev::solidity;
+
+namespace dev
+{
+namespace solidity
+{
 
 void CompilerContext::addStateVariable(
 	VariableDeclaration const& _declaration,
@@ -128,10 +125,8 @@ void CompilerContext::appendMissingLowLevelFunctions()
 	}
 }
 
-void CompilerContext::addVariable(
-	VariableDeclaration const& _declaration,
-	unsigned _offsetToCurrent
-)
+void CompilerContext::addVariable(VariableDeclaration const& _declaration,
+								  unsigned _offsetToCurrent)
 {
 	solAssert(m_asm->deposit() >= 0 && unsigned(m_asm->deposit()) >= _offsetToCurrent, "");
 	unsigned sizeOnStack = _declaration.annotation().type->sizeOnStack();
@@ -168,18 +163,11 @@ unsigned CompilerContext::numberOfLocalVariables() const
 	return m_localVariables.size();
 }
 
-shared_ptr<eth::Assembly> CompilerContext::compiledContract(ContractDefinition const& _contract) const
+eth::Assembly const& CompilerContext::compiledContract(const ContractDefinition& _contract) const
 {
-	auto ret = m_otherCompilers.find(&_contract);
-	solAssert(ret != m_otherCompilers.end(), "Compiled contract not found.");
-	return ret->second->assemblyPtr();
-}
-
-shared_ptr<eth::Assembly> CompilerContext::compiledContractRuntime(ContractDefinition const& _contract) const
-{
-	auto ret = m_otherCompilers.find(&_contract);
-	solAssert(ret != m_otherCompilers.end(), "Compiled contract not found.");
-	return ret->second->runtimeAssemblyPtr();
+	auto ret = m_compiledContracts.find(&_contract);
+	solAssert(ret != m_compiledContracts.end(), "Compiled contract not found.");
+	return *ret->second;
 }
 
 bool CompilerContext::isLocalVariable(Declaration const* _declaration) const
@@ -266,7 +254,7 @@ unsigned CompilerContext::currentToBaseStackOffset(unsigned _offset) const
 	return m_asm->deposit() - _offset - 1;
 }
 
-pair<u256, unsigned> CompilerContext::storageLocationOfVariable(Declaration const& _declaration) const
+pair<u256, unsigned> CompilerContext::storageLocationOfVariable(const Declaration& _declaration) const
 {
 	auto it = m_stateVariables.find(&_declaration);
 	solAssert(it != m_stateVariables.end(), "Variable not found in storage.");
@@ -327,28 +315,19 @@ void CompilerContext::resetVisitedNodes(ASTNode const* _node)
 void CompilerContext::appendInlineAssembly(
 	string const& _assembly,
 	vector<string> const& _localVariables,
-	set<string> const& _externallyUsedFunctions,
-	bool _system,
-	OptimiserSettings const& _optimiserSettings
+	set<string> const&,
+	bool _system
 )
 {
 	int startStackHeight = stackHeight();
-
-	set<yul::YulString> externallyUsedIdentifiers;
-	for (auto const& fun: _externallyUsedFunctions)
-		externallyUsedIdentifiers.insert(yul::YulString(fun));
-	for (auto const& var: _localVariables)
-		externallyUsedIdentifiers.insert(yul::YulString(var));
 
 	yul::ExternalIdentifierAccess identifierAccess;
 	identifierAccess.resolve = [&](
 		yul::Identifier const& _identifier,
 		yul::IdentifierContext,
-		bool _insideFunction
-	) -> size_t
+		bool
+	)
 	{
-		if (_insideFunction)
-			return size_t(-1);
 		auto it = std::find(_localVariables.begin(), _localVariables.end(), _identifier.name.str());
 		return it == _localVariables.end() ? size_t(-1) : 1;
 	};
@@ -382,78 +361,41 @@ void CompilerContext::appendInlineAssembly(
 	ErrorList errors;
 	ErrorReporter errorReporter(errors);
 	auto scanner = make_shared<langutil::Scanner>(langutil::CharStream(_assembly, "--CODEGEN--"));
-	auto parserResult = yul::Parser(errorReporter, yul::EVMDialect::strictAssemblyForEVM(m_evmVersion)).parse(scanner, false);
+	auto parserResult = yul::Parser(errorReporter, yul::AsmFlavour::Strict).parse(scanner, false);
 #ifdef SOL_OUTPUT_ASM
 	cout << yul::AsmPrinter()(*parserResult) << endl;
 #endif
-
-	auto reportError = [&](string const& _context)
-	{
-		string message =
-			"Error parsing/analyzing inline assembly block:\n" +
-			_context + "\n"
-			"------------------ Input: -----------------\n" +
-			_assembly + "\n"
-			"------------------ Errors: ----------------\n";
-		for (auto const& error: errorReporter.errors())
-			message += SourceReferenceFormatter::formatErrorInformation(*error);
-		message += "-------------------------------------------\n";
-
-		solAssert(false, message);
-	};
-
 	yul::AsmAnalysisInfo analysisInfo;
 	bool analyzerResult = false;
 	if (parserResult)
 		analyzerResult = yul::AsmAnalyzer(
 			analysisInfo,
 			errorReporter,
+			m_evmVersion,
 			boost::none,
-			yul::EVMDialect::strictAssemblyForEVM(m_evmVersion),
+			yul::AsmFlavour::Strict,
 			identifierAccess.resolve
 		).analyze(*parserResult);
 	if (!parserResult || !errorReporter.errors().empty() || !analyzerResult)
-		reportError("Invalid assembly generated by code generator.");
-
-	// Several optimizer steps cannot handle externally supplied stack variables,
-	// so we essentially only optimize the ABI functions.
-	if (_optimiserSettings.runYulOptimiser && _localVariables.empty())
 	{
-		yul::OptimiserSuite::run(
-			yul::EVMDialect::strictAssemblyForEVM(m_evmVersion),
-			*parserResult,
-			analysisInfo,
-			_optimiserSettings.optimizeStackAllocation,
-			externallyUsedIdentifiers
-		);
-		analysisInfo = yul::AsmAnalysisInfo{};
-		if (!yul::AsmAnalyzer(
-			analysisInfo,
-			errorReporter,
-			boost::none,
-			yul::EVMDialect::strictAssemblyForEVM(m_evmVersion),
-			identifierAccess.resolve
-		).analyze(*parserResult))
-			reportError("Optimizer introduced error into inline assembly.");
-#ifdef SOL_OUTPUT_ASM
-		cout << "After optimizer: " << endl;
-		cout << yul::AsmPrinter()(*parserResult) << endl;
-#endif
+		string message =
+			"Error parsing/analyzing inline assembly block:\n"
+			"------------------ Input: -----------------\n" +
+			_assembly + "\n"
+			"------------------ Errors: ----------------\n";
+		for (auto const& error: errorReporter.errors())
+			message += SourceReferenceFormatter::formatExceptionInformation(
+				*error,
+				(error->type() == Error::Type::Warning) ? "Warning" : "Error",
+				[&](string const&) -> Scanner const& { return *scanner; }
+			);
+		message += "-------------------------------------------\n";
+
+		solAssert(false, message);
 	}
 
-	if (!errorReporter.errors().empty())
-		reportError("Failed to analyze inline assembly block.");
-
 	solAssert(errorReporter.errors().empty(), "Failed to analyze inline assembly block.");
-	yul::CodeGenerator::assemble(
-		*parserResult,
-		analysisInfo,
-		*m_asm,
-		m_evmVersion,
-		identifierAccess,
-		_system,
-		_optimiserSettings.optimizeStackAllocation
-	);
+	yul::CodeGenerator::assemble(*parserResult, analysisInfo, *m_asm, identifierAccess, _system);
 
 	// Reset the source location to the one of the node (instead of the CODEGEN source location)
 	updateSourceLocation();
@@ -490,21 +432,6 @@ vector<ContractDefinition const*>::const_iterator CompilerContext::superContract
 void CompilerContext::updateSourceLocation()
 {
 	m_asm->setSourceLocation(m_visitedNodes.empty() ? SourceLocation() : m_visitedNodes.top()->location());
-}
-
-eth::Assembly::OptimiserSettings CompilerContext::translateOptimiserSettings(OptimiserSettings const& _settings)
-{
-	// Constructing it this way so that we notice changes in the fields.
-	eth::Assembly::OptimiserSettings asmSettings{false, false, false, false, false, false, m_evmVersion, 0};
-	asmSettings.isCreation = true;
-	asmSettings.runJumpdestRemover = _settings.runJumpdestRemover;
-	asmSettings.runPeephole = _settings.runPeephole;
-	asmSettings.runDeduplicate = _settings.runDeduplicate;
-	asmSettings.runCSE = _settings.runCSE;
-	asmSettings.runConstantOptimiser = _settings.runConstantOptimiser;
-	asmSettings.expectedExecutionsPerDeployment = _settings.expectedExecutionsPerDeployment;
-	asmSettings.evmVersion = m_evmVersion;
-	return asmSettings;
 }
 
 eth::AssemblyItem CompilerContext::FunctionCompilationQueue::entryLabel(
@@ -548,4 +475,7 @@ void CompilerContext::FunctionCompilationQueue::startFunction(Declaration const&
 	if (!m_functionsToCompile.empty() && m_functionsToCompile.front() == &_function)
 		m_functionsToCompile.pop();
 	m_alreadyCompiledFunctions.insert(&_function);
+}
+
+}
 }

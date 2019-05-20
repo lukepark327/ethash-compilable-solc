@@ -4,9 +4,8 @@
     a := add(a, 1)
   }
 }
-// ====
-// step: forLoopInitRewriter
 // ----
+// forLoopInitRewriter
 // {
 //     let a := 1
 //     for {

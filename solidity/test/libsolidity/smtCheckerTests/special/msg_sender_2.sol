@@ -10,4 +10,5 @@ contract C
 	}
 }
 // ----
-// Warning: (98-108): Type conversion is not yet fully supported and might yield false positives.
+// Warning: (98-108): Assertion checker does not yet implement this expression.
+// Warning: (98-108): Internal error: Expression undefined for SMT solver.

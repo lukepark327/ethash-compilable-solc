@@ -21,9 +21,8 @@
  */
 
 #include <libsolidity/codegen/Compiler.h>
-
-#include <libsolidity/codegen/ContractCompiler.h>
 #include <libevmasm/Assembly.h>
+#include <libsolidity/codegen/ContractCompiler.h>
 
 using namespace std;
 using namespace dev;
@@ -31,30 +30,20 @@ using namespace dev::solidity;
 
 void Compiler::compileContract(
 	ContractDefinition const& _contract,
-	std::map<ContractDefinition const*, shared_ptr<Compiler const>> const& _otherCompilers,
+	std::map<const ContractDefinition*, eth::Assembly const*> const& _contracts,
 	bytes const& _metadata
 )
 {
-	ContractCompiler runtimeCompiler(nullptr, m_runtimeContext, m_optimiserSettings);
-	runtimeCompiler.compileContract(_contract, _otherCompilers);
+	ContractCompiler runtimeCompiler(nullptr, m_runtimeContext, m_optimize);
+	runtimeCompiler.compileContract(_contract, _contracts);
 	m_runtimeContext.appendAuxiliaryData(_metadata);
 
 	// This might modify m_runtimeContext because it can access runtime functions at
 	// creation time.
-	OptimiserSettings creationSettings{m_optimiserSettings};
-	// The creation code will be executed at most once, so we modify the optimizer
-	// settings accordingly.
-	creationSettings.expectedExecutionsPerDeployment = 1;
-	ContractCompiler creationCompiler(&runtimeCompiler, m_context, creationSettings);
-	m_runtimeSub = creationCompiler.compileConstructor(_contract, _otherCompilers);
+	ContractCompiler creationCompiler(&runtimeCompiler, m_context, m_optimize);
+	m_runtimeSub = creationCompiler.compileConstructor(_contract, _contracts);
 
-	m_context.optimise(m_optimiserSettings);
-}
-
-std::shared_ptr<eth::Assembly> Compiler::runtimeAssemblyPtr() const
-{
-	solAssert(m_context.runtimeContext(), "");
-	return m_context.runtimeContext()->assemblyPtr();
+	m_context.optimise(m_optimize, m_optimizeRuns);
 }
 
 eth::AssemblyItem Compiler::functionEntryLabel(FunctionDefinition const& _function) const

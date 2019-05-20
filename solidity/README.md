@@ -1,6 +1,5 @@
 # The Solidity Contract-Oriented Programming Language
-[![Join the chat at https://gitter.im/ethereum/solidity](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/ethereum/solidity?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
+[![Join the chat at https://gitter.im/ethereum/solidity](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/ethereum/solidity?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/ethereum/solidity.svg?branch=develop)](https://travis-ci.org/ethereum/solidity)
 Solidity is a statically typed, contract-oriented, high-level language for implementing smart contracts on the Ethereum platform.
 
 ## Table of Contents
@@ -20,8 +19,6 @@ that run on the Ethereum Virtual Machine. Smart contracts are programs that are 
 network where nobody has special authority over the execution and thus they allow to implement tokens of value,
 ownership, voting and other kinds of logics.
 
-When deploying contracts, you should use the latest released version of Solidity. This is because breaking changes as well as new features and bug fixes are introduced regularly. We currently use a 0.x version number [to indicate this fast pace of change](https://semver.org/#spec-item-4).
-
 ## Build and Install
 
 Instructions about how to build and install the Solidity compiler can be found in the [Solidity documentation](https://solidity.readthedocs.io/en/latest/installing-solidity.html#building-from-source)
@@ -32,7 +29,7 @@ Instructions about how to build and install the Solidity compiler can be found i
 A "Hello World" program in Solidity is of even less use than in other languages, but still:
 
 ```
-pragma solidity ^0.5.0;
+pragma solidity ^0.4.16;
 
 contract HelloWorld {
   function helloWorld() external pure returns (string memory) {

@@ -26,7 +26,6 @@
 
 using namespace std;
 using namespace dev;
-using namespace dev::eth;
 using namespace langutil;
 using namespace yul;
 
@@ -44,23 +43,23 @@ void EVMAssembly::setSourceLocation(SourceLocation const&)
 	// Ignored for now;
 }
 
-void EVMAssembly::appendInstruction(dev::eth::Instruction _instr)
+void EVMAssembly::appendInstruction(solidity::Instruction _instr)
 {
 	m_bytecode.push_back(uint8_t(_instr));
-	m_stackHeight += instructionInfo(_instr).ret - instructionInfo(_instr).args;
+	m_stackHeight += solidity::instructionInfo(_instr).ret - solidity::instructionInfo(_instr).args;
 }
 
 void EVMAssembly::appendConstant(u256 const& _constant)
 {
 	bytes data = toCompactBigEndian(_constant, 1);
-	appendInstruction(pushInstruction(data.size()));
+	appendInstruction(solidity::pushInstruction(data.size()));
 	m_bytecode += data;
 }
 
 void EVMAssembly::appendLabel(LabelID _labelId)
 {
 	setLabelToCurrentPosition(_labelId);
-	appendInstruction(dev::eth::Instruction::JUMPDEST);
+	appendInstruction(solidity::Instruction::JUMPDEST);
 }
 
 void EVMAssembly::appendLabelReference(LabelID _labelId)
@@ -68,7 +67,7 @@ void EVMAssembly::appendLabelReference(LabelID _labelId)
 	solAssert(!m_evm15, "Cannot use plain label references in EMV1.5 mode.");
 	// @TODO we now always use labelReferenceSize for all labels, it could be shortened
 	// for some of them.
-	appendInstruction(dev::eth::pushInstruction(labelReferenceSize));
+	appendInstruction(solidity::pushInstruction(labelReferenceSize));
 	m_labelReferences[m_bytecode.size()] = _labelId;
 	m_bytecode += bytes(labelReferenceSize);
 }
@@ -95,7 +94,7 @@ void EVMAssembly::appendLinkerSymbol(string const&)
 void EVMAssembly::appendJump(int _stackDiffAfter)
 {
 	solAssert(!m_evm15, "Plain JUMP used for EVM 1.5");
-	appendInstruction(dev::eth::Instruction::JUMP);
+	appendInstruction(solidity::Instruction::JUMP);
 	m_stackHeight += _stackDiffAfter;
 }
 
@@ -103,7 +102,7 @@ void EVMAssembly::appendJumpTo(LabelID _labelId, int _stackDiffAfter)
 {
 	if (m_evm15)
 	{
-		m_bytecode.push_back(uint8_t(dev::eth::Instruction::JUMPTO));
+		m_bytecode.push_back(uint8_t(solidity::Instruction::JUMPTO));
 		appendLabelReferenceInternal(_labelId);
 		m_stackHeight += _stackDiffAfter;
 	}
@@ -118,14 +117,14 @@ void EVMAssembly::appendJumpToIf(LabelID _labelId)
 {
 	if (m_evm15)
 	{
-		m_bytecode.push_back(uint8_t(dev::eth::Instruction::JUMPIF));
+		m_bytecode.push_back(uint8_t(solidity::Instruction::JUMPIF));
 		appendLabelReferenceInternal(_labelId);
 		m_stackHeight--;
 	}
 	else
 	{
 		appendLabelReference(_labelId);
-		appendInstruction(dev::eth::Instruction::JUMPI);
+		appendInstruction(solidity::Instruction::JUMPI);
 	}
 }
 
@@ -134,7 +133,7 @@ void EVMAssembly::appendBeginsub(LabelID _labelId, int _arguments)
 	solAssert(m_evm15, "BEGINSUB used for EVM 1.0");
 	solAssert(_arguments >= 0, "");
 	setLabelToCurrentPosition(_labelId);
-	m_bytecode.push_back(uint8_t(dev::eth::Instruction::BEGINSUB));
+	m_bytecode.push_back(uint8_t(solidity::Instruction::BEGINSUB));
 	m_stackHeight += _arguments;
 }
 
@@ -142,7 +141,7 @@ void EVMAssembly::appendJumpsub(LabelID _labelId, int _arguments, int _returns)
 {
 	solAssert(m_evm15, "JUMPSUB used for EVM 1.0");
 	solAssert(_arguments >= 0 && _returns >= 0, "");
-	m_bytecode.push_back(uint8_t(dev::eth::Instruction::JUMPSUB));
+	m_bytecode.push_back(uint8_t(solidity::Instruction::JUMPSUB));
 	appendLabelReferenceInternal(_labelId);
 	m_stackHeight += _returns - _arguments;
 }
@@ -151,7 +150,7 @@ void EVMAssembly::appendReturnsub(int _returns, int _stackDiffAfter)
 {
 	solAssert(m_evm15, "RETURNSUB used for EVM 1.0");
 	solAssert(_returns >= 0, "");
-	m_bytecode.push_back(uint8_t(dev::eth::Instruction::RETURNSUB));
+	m_bytecode.push_back(uint8_t(solidity::Instruction::RETURNSUB));
 	m_stackHeight += _stackDiffAfter - _returns;
 }
 
@@ -190,30 +189,9 @@ void EVMAssembly::appendLabelReferenceInternal(LabelID _labelId)
 
 void EVMAssembly::appendAssemblySize()
 {
-	appendInstruction(dev::eth::pushInstruction(assemblySizeReferenceSize));
+	appendInstruction(solidity::pushInstruction(assemblySizeReferenceSize));
 	m_assemblySizePositions.push_back(m_bytecode.size());
 	m_bytecode += bytes(assemblySizeReferenceSize);
-}
-
-pair<shared_ptr<AbstractAssembly>, AbstractAssembly::SubID> EVMAssembly::createSubAssembly()
-{
-	solAssert(false, "Sub assemblies not implemented.");
-	return {};
-}
-
-void EVMAssembly::appendDataOffset(AbstractAssembly::SubID)
-{
-	solAssert(false, "Data not implemented.");
-}
-
-void EVMAssembly::appendDataSize(AbstractAssembly::SubID)
-{
-	solAssert(false, "Data not implemented.");
-}
-
-AbstractAssembly::SubID EVMAssembly::appendData(bytes const&)
-{
-	solAssert(false, "Data not implemented.");
 }
 
 void EVMAssembly::updateReference(size_t pos, size_t size, u256 value)

@@ -34,12 +34,6 @@
 
 set -ev
 
-if test -z "$1"; then
-	BUILD_DIR="emscripten_build"
-else
-	BUILD_DIR="$1"
-fi
-
 if ! type git &>/dev/null; then
     # We need git for extracting the commit hash
     apt-get update
@@ -55,16 +49,16 @@ fi
 WORKSPACE=/root/project
 
 # Increase nodejs stack size
-if ! [ -e /emsdk_portable/node/bin/node_orig ]
+if [ -e ~/.emscripten ]
 then
-  mv /emsdk_portable/node/bin/node /emsdk_portable/node/bin/node_orig
-  echo -e '#!/bin/sh\nexec /emsdk_portable/node/bin/node_orig --stack-size=8192 $@' > /emsdk_portable/node/bin/node
-  chmod 755 /emsdk_portable/node/bin/node
+    sed -i -e 's/NODE_JS="nodejs"/NODE_JS=["nodejs", "--stack_size=8192"]/' ~/.emscripten
+else
+    echo 'NODE_JS=["nodejs", "--stack_size=8192"]' > ~/.emscripten
 fi
 
 # Boost
 echo -en 'travis_fold:start:compiling_boost\\r'
-cd "$WORKSPACE"/boost_1_68_0
+cd "$WORKSPACE"/boost_1_67_0
 # if b2 exists, it is a fresh checkout, otherwise it comes from the cache
 # and is already compiled
 test -e b2 && (
@@ -82,30 +76,29 @@ echo -en 'travis_fold:end:install_cmake.sh\\r'
 # Build dependent components and solidity itself
 echo -en 'travis_fold:start:compiling_solidity\\r'
 cd $WORKSPACE
-mkdir -p $BUILD_DIR
-cd $BUILD_DIR
+mkdir -p build
+cd build
 cmake \
-  -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchains/emscripten.cmake \
+  -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake \
   -DCMAKE_BUILD_TYPE=Release \
+  -DEMSCRIPTEN=1 \
   -DBoost_FOUND=1 \
   -DBoost_USE_STATIC_LIBS=1 \
   -DBoost_USE_STATIC_RUNTIME=1 \
-  -DBoost_INCLUDE_DIR="$WORKSPACE"/boost_1_68_0/ \
-  -DBoost_FILESYSTEM_LIBRARY_RELEASE="$WORKSPACE"/boost_1_68_0/libboost_filesystem.a \
-  -DBoost_PROGRAM_OPTIONS_LIBRARY_RELEASE="$WORKSPACE"/boost_1_68_0/libboost_program_options.a \
-  -DBoost_REGEX_LIBRARY_RELEASE="$WORKSPACE"/boost_1_68_0/libboost_regex.a \
-  -DBoost_SYSTEM_LIBRARY_RELEASE="$WORKSPACE"/boost_1_68_0/libboost_system.a \
-  -DBoost_UNIT_TEST_FRAMEWORK_LIBRARY_RELEASE="$WORKSPACE"/boost_1_68_0/libboost_unit_test_framework.a \
+  -DBoost_INCLUDE_DIR="$WORKSPACE"/boost_1_67_0/ \
+  -DBoost_FILESYSTEM_LIBRARY_RELEASE="$WORKSPACE"/boost_1_67_0/libboost_filesystem.a \
+  -DBoost_PROGRAM_OPTIONS_LIBRARY_RELEASE="$WORKSPACE"/boost_1_67_0/libboost_program_options.a \
+  -DBoost_REGEX_LIBRARY_RELEASE="$WORKSPACE"/boost_1_67_0/libboost_regex.a \
+  -DBoost_SYSTEM_LIBRARY_RELEASE="$WORKSPACE"/boost_1_67_0/libboost_system.a \
+  -DBoost_UNIT_TEST_FRAMEWORK_LIBRARY_RELEASE="$WORKSPACE"/boost_1_67_0/libboost_unit_test_framework.a \
   -DTESTS=0 \
   ..
 make -j 4
 
 cd ..
 mkdir -p upload
-# Patch soljson.js to provide backwards-compatibility with older emscripten versions
-echo ";/* backwards compatibility */ Module['Runtime'] = Module;" >> $BUILD_DIR/libsolc/soljson.js
-cp $BUILD_DIR/libsolc/soljson.js upload/
-cp $BUILD_DIR/libsolc/soljson.js ./
+cp build/libsolc/soljson.js upload/
+cp build/libsolc/soljson.js ./
 
 OUTPUT_SIZE=`ls -la soljson.js`
 

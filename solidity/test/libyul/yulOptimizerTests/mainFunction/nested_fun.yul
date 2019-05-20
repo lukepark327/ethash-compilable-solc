@@ -1,3 +1,4 @@
+// yul
 {
     let a:u256
     function f() {
@@ -6,10 +7,8 @@
         let d:u256
     }
 }
-// ====
-// step: mainFunction
-// yul: true
 // ----
+// mainFunction
 // {
 //     function main()
 //     {

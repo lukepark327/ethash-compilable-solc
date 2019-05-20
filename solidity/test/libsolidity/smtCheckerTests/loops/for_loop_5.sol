@@ -9,6 +9,4 @@ contract C {
     }
 }
 // ----
-// Warning: (167-181): Assertion violation happens here
-// Warning: (142-147): Underflow (resulting value less than 0) happens here
-// Warning: (142-147): Overflow (resulting value larger than 2**256 - 1) happens here
+// Warning: (167-181): Assertion violation happens here\nNote that some information is erased after the execution of loops.\nYou can re-introduce information using require().

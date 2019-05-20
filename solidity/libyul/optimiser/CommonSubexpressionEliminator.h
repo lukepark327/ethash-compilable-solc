@@ -26,19 +26,14 @@
 namespace yul
 {
 
-struct Dialect;
-
 /**
  * Optimisation stage that replaces expressions known to be the current value of a variable
  * in scope by a reference to that variable.
  *
- * Prerequisite: Disambiguator, ForLoopInitRewriter.
+ * Prerequisite: Disambiguator
  */
 class CommonSubexpressionEliminator: public DataFlowAnalyzer
 {
-public:
-	CommonSubexpressionEliminator(Dialect const& _dialect): DataFlowAnalyzer(_dialect) {}
-
 protected:
 	using ASTModifier::visit;
 	void visit(Expression& _e) override;
