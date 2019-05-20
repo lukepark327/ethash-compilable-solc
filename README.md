@@ -114,7 +114,8 @@ $ build/solc/solc -o ./solexam --bin --ast --asm solexam/testEthash.sol
 
 # Trouble Shootings
 
-TBA
+## external contract call doesn't work
+Use the lower version solc which is not a developer version like 0.5.1 committed.
 
 # References
 [1] https://ethereum.stackexchange.com/questions/15435/how-to-compile-solidity-contracts-with-geth-v1-6   
